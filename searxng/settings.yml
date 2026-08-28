@@ -1,0 +1,18 @@
+# ResearchMind local SearXNG config — enables JSON output for the API client.
+use_default_settings: true
+server:
+  secret_key: "0895f01a73232e4ec89cd4d92cc409f16505b0e1cc51bb2ade86d8e1cf456915"
+  limiter: false
+  image_proxy: true
+search:
+  safe_search: 0
+  formats:
+    - html
+    - json
+outgoing:
+  # This machine sits behind a Sophos TLS-inspection proxy whose CA cert has a
+  # non-critical BasicConstraints extension, which the container's OpenSSL 3.x
+  # rejects. The proxy already inspects+re-encrypts all egress, so skipping SearXNG's
+  # own verification of the proxy cert is safe on this controlled corporate network.
+  verify: false
+  request_timeout: 8.0

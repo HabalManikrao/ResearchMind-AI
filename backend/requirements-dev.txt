@@ -1,0 +1,6 @@
+-r requirements.txt
+pytest==8.3.4
+pytest-asyncio==0.24.0
+# Dev-only: generate real PDFs in tests for the document parser.
+# Unpinned lower bound to stay compatible with xhtml2pdf's svglib (needs >=4.4.3).
+reportlab>=4.4.3

@@ -1,0 +1,28 @@
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+backend/.env
+backend/*.db
+backend/researchmind.db
+backend/qdrant_data/
+# uploaded documents (user data) — never commit
+backend/document_storage/
+# machine-specific corporate CA export — never commit
+backend/corp-ca-bundle.pem
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.log
