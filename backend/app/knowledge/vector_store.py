@@ -151,6 +151,38 @@ def search_documents(
     return [VectorHit(id=str(p.id), score=float(p.score), payload=p.payload or {}) for p in result]
 
 
+def copy_document_vectors(mapping: list[dict]) -> int:
+    """Copy existing document-chunk vectors to new points WITHOUT re-embedding —
+    used by Research Again's document carry-forward (#4). Retrieves each source
+    point's vector and re-upserts it under a new id + payload (new project_id).
+
+    mapping: [{old_point_id, new_point_id, payload}]. Returns the count copied.
+    """
+    if not mapping:
+        return 0
+    client = get_client()
+    if not client.collection_exists(DOCUMENTS_COLLECTION):
+        return 0
+    old_ids = [m["old_point_id"] for m in mapping if m.get("old_point_id")]
+    if not old_ids:
+        return 0
+    records = client.retrieve(DOCUMENTS_COLLECTION, ids=old_ids, with_vectors=True)
+    vec_by_id = {str(r.id): r.vector for r in records if r.vector is not None}
+    points = [
+        PointStruct(
+            id=m["new_point_id"],
+            vector=vec_by_id[str(m["old_point_id"])],
+            payload=m["payload"],
+        )
+        for m in mapping
+        if str(m.get("old_point_id")) in vec_by_id
+    ]
+    if not points:
+        return 0
+    client.upsert(DOCUMENTS_COLLECTION, points=points)
+    return len(points)
+
+
 def delete_document_vectors(document_id: str) -> None:
     client = get_client()
     if not client.collection_exists(DOCUMENTS_COLLECTION):
@@ -187,6 +219,7 @@ __all__ = [
     "ensure_documents_collection",
     "upsert_documents",
     "search_documents",
+    "copy_document_vectors",
     "delete_document_vectors",
     "delete_project_documents",
 ]

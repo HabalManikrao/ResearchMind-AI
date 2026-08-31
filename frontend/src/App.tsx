@@ -4,6 +4,7 @@ import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import NewResearch from "./pages/NewResearch";
 import LiveResearch from "./pages/LiveResearch";
+import RunDiff from "./pages/RunDiff";
 import History from "./pages/History";
 import Knowledge from "./pages/Knowledge";
 import Monitoring from "./pages/Monitoring";
@@ -43,6 +44,7 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="new" element={<NewResearch />} />
           <Route path="research/:id" element={<LiveResearch />} />
+          <Route path="research/:id/diff/:otherId" element={<RunDiff />} />
           <Route path="history" element={<History />} />
           <Route path="scheduled" element={<Scheduled />} />
           <Route path="knowledge" element={<Knowledge />} />

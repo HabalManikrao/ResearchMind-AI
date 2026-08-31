@@ -48,6 +48,25 @@ evidence in the Claims drill-down. Additive migration (two new tables). See
 
 ---
 
+## ⚑ Implementation status — Milestone #4 Research Memory + Again + Diff DONE (2026-08-31)
+
+Versioned research (top-5 item **#4**) is implemented, tested, shipped. **A Research Run is a
+`ResearchProject`** — no parallel run table — with an additive lineage self-reference
+(`parent_id`/`root_id`/`run_number`/`run_intent`/`completed_at`/`memory_summary`). Completed runs are
+immutable snapshots. **Research Again** (`POST /research/{id}/research-again`, intents refresh/deepen/
+verify/full) forks a new run, threads the parent's *selective memory* (high-confidence claims, open
+questions, contradictions, prior recommendation) into the planner with **zero extra LLM calls**, and
+best-effort carries the parent's documents forward (row + vector copy, no re-embed). **Research Diff**
+(`GET /research/{id}/diff/{other_id}`) is a deterministic, LLM-free comparison — sources (by
+normalized URL), evidence-aware claims (normalized→token→optional-embedding matching; strengthened/
+weakened/contradicted with reasons built from `confidence_meta`), confidence, recommendation, and
+document evidence. New endpoints `GET /runs` and `GET /memory`. Frontend: lineage bar + Research Again
+control in the live view, a dedicated RunDiff page (previous→current evidence drill-down), and
+lineage-grouped History. Additive/idempotent migration with a `root_id` backfill. See
+`docs/RESEARCH-MEMORY-IMPLEMENTATION-PLAN.md` and `docs/RESEARCH-MEMORY-COMPLETION.md`.
+
+---
+
 ## A. Current Architecture (as-built)
 
 ```

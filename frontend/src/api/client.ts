@@ -19,6 +19,10 @@ import type {
   Question,
   Recommendation,
   Report,
+  ResearchAgainRequest,
+  ResearchDiff,
+  RunSummary,
+  MemoryResponse,
   Schedule,
   ScheduleCreate,
   Solution,
@@ -106,6 +110,17 @@ export const api = {
   claims: (id: string) => req<Claim[]>(`/research/${id}/claims`),
   claimEvidence: (id: string, claimId: string) =>
     req<ClaimEvidenceResponse>(`/research/${id}/claims/${claimId}/evidence`),
+
+  // --- Research Memory + Again + Diff (#4) --- //
+  runs: (id: string) => req<RunSummary[]>(`/research/${id}/runs`),
+  memory: (id: string) => req<MemoryResponse>(`/research/${id}/memory`),
+  researchAgain: (id: string, body: ResearchAgainRequest) =>
+    req<ProjectDetail>(`/research/${id}/research-again`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  diff: (id: string, otherId: string) =>
+    req<ResearchDiff>(`/research/${id}/diff/${otherId}`),
 
   // --- Documents (RAG) --- //
   uploadDocument: async (projectId: string, file: File): Promise<DocumentItem> => {

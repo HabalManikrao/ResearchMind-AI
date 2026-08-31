@@ -58,6 +58,25 @@ class ResearchProject(Base, TimestampMixin):
     user_id: Mapped[str | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    # --- Research lineage (#4): a project IS a run. A "Research Again" forks a new
+    # project linked to its parent, so completed runs stay immutable snapshots. ---
+    # The run this one continued from (NULL for an original run).
+    parent_id: Mapped[str | None] = mapped_column(
+        ForeignKey("research_projects.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    # First run in the lineage == the "investigation" id. Set to own id for originals;
+    # inherited unchanged by every continuation, so a whole lineage is one indexed query.
+    root_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    run_number: Mapped[int] = mapped_column(Integer, default=1)  # 1 = original, 2+ = continuation
+    # How this run was created: original|refresh|deepen|verify|full.
+    run_intent: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Stamped once when the run reaches COMPLETED; an immutable-snapshot marker.
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # Compact structured "research memory" record, built once at completion for reuse
+    # by future runs and the memory endpoint (see orchestrator._build_memory_summary).
+    memory_summary: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     title: Mapped[str] = mapped_column(String(500))
     query: Mapped[str] = mapped_column(Text)
     mode: Mapped[ResearchMode] = mapped_column(

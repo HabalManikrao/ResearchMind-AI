@@ -33,6 +33,8 @@ export type ClaimStatus =
   | "unverified"
   | "insufficient_evidence";
 
+export type RunIntent = "original" | "refresh" | "deepen" | "verify" | "full";
+
 export interface ProjectSummary {
   id: string;
   title: string;
@@ -43,6 +45,12 @@ export interface ProjectSummary {
   current_stage: string | null;
   created_at: string;
   updated_at: string;
+  // Research lineage (#4).
+  parent_id: string | null;
+  root_id: string | null;
+  run_number: number;
+  run_intent: RunIntent | null;
+  completed_at: string | null;
 }
 
 export interface ProjectDetail extends ProjectSummary {
@@ -363,6 +371,121 @@ export interface Notification {
   project_id: string | null;
   read: boolean;
   created_at: string;
+}
+
+// --- Research Memory + Again + Diff (#4) ---------------------------------- //
+export interface RunSummary {
+  id: string;
+  run_number: number;
+  run_intent: RunIntent | null;
+  status: ProjectStatus;
+  created_at: string;
+  completed_at: string | null;
+  parent_id: string | null;
+  source_count: number;
+  claim_count: number;
+  evidence_count: number;
+  avg_confidence: number;
+}
+
+export interface ResearchAgainRequest {
+  intent: "refresh" | "deepen" | "verify" | "full";
+  mode?: ResearchMode;
+  sources_enabled?: string[];
+  auto_start?: boolean;
+}
+
+export interface MemorySummary {
+  question: string;
+  objective: string;
+  key_findings: string[];
+  high_confidence_claims: { text: string; confidence: number }[];
+  weak_claims: { text: string; confidence: number }[];
+  contradictions: { statement_a: string; statement_b: string }[];
+  open_questions: string[];
+  important_sources: { title: string; url: string; reliability: number }[];
+  recommendation: { option: string; confidence: number } | null;
+  counts: { sources: number; claims: number; evidence: number };
+  confidence: { avg: number; supported: number; weak: number; conflicting: number };
+  as_of: string;
+}
+
+export interface MemoryResponse {
+  project_id: string;
+  memory: MemorySummary | null;
+}
+
+export type DiffKind =
+  | "unchanged"
+  | "new"
+  | "removed"
+  | "changed"
+  | "strengthened"
+  | "weakened"
+  | "contradicted"
+  | "reversed"
+  | "modified";
+
+export interface DiffEvidenceItem {
+  title: string;
+  url: string;
+  source_type: string;
+  stance: EvidenceStance;
+  passage: string | null;
+  page_number: number | null;
+}
+
+export interface SourceDiffItem {
+  kind: DiffKind;
+  url: string;
+  title: string;
+  source_type: string;
+  changes: string[];
+}
+
+export interface ClaimDiffItem {
+  kind: DiffKind;
+  old_text: string | null;
+  new_text: string | null;
+  old_confidence: number | null;
+  new_confidence: number | null;
+  confidence_delta: number | null;
+  direction: "up" | "down" | "flat" | "";
+  reason: string;
+  match_score: number | null;
+  old_evidence: DiffEvidenceItem[];
+  new_evidence: DiffEvidenceItem[];
+}
+
+export interface DocumentDiffItem {
+  kind: DiffKind;
+  document_id: string | null;
+  filename: string;
+  changes: string[];
+}
+
+export interface ResearchDiff {
+  old_run: { id: string; run_number: number; run_intent: string | null; completed_at: string | null };
+  new_run: { id: string; run_number: number; run_intent: string | null; completed_at: string | null };
+  sources: {
+    new: number; removed: number; unchanged: number; changed: number;
+    items: SourceDiffItem[];
+  };
+  claims: {
+    new: number; removed: number; unchanged: number;
+    strengthened: number; weakened: number; contradicted: number;
+    items: ClaimDiffItem[];
+  };
+  confidence: { increased: number; decreased: number; unchanged: number };
+  recommendation: {
+    kind: DiffKind;
+    old: { option: string; confidence: number } | null;
+    new: { option: string; confidence: number } | null;
+  };
+  documents: {
+    new: number; removed: number; unchanged: number; changed: number;
+    items: DocumentDiffItem[];
+  };
 }
 
 export interface ProgressEvent {

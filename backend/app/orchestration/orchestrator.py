@@ -98,6 +98,8 @@ async def run_research(project_id: str, control: RunControl) -> None:
             constraints = dict(proj.constraints or {})
             enabled_sources = list(proj.sources_enabled or ["web"])
             mode = proj.mode
+            parent_id = proj.parent_id
+            run_intent = proj.run_intent or "original"
 
         # Market Intelligence mode: bias search toward recent sources and report a
         # dated snapshot of the current state.
@@ -108,9 +110,22 @@ async def run_research(project_id: str, control: RunControl) -> None:
         await _emit(project_id, "stage", "Understanding objective and planning research")
         await control.checkpoint()
 
+        # --- Prior context (Research Again): steer planning with the parent run's
+        # selective memory. Zero extra LLM calls — injected into make_plan (#4). ----
+        prior_context = None
+        if parent_id:
+            prior_context = await _build_prior_context(parent_id)
+            if prior_context:
+                await _emit(
+                    project_id, "activity",
+                    f"Continuing previous research ({run_intent}) with prior context",
+                    agent="manager", intent=run_intent, parent_id=parent_id,
+                )
+
         # --- Plan -------------------------------------------------------------
         plan = await planner.make_plan(
-            provider, query, constraints=constraints, market=is_market, as_of=as_of
+            provider, query, constraints=constraints, market=is_market, as_of=as_of,
+            prior_context=prior_context, intent=run_intent,
         )
         async with _db_lock, SessionLocal() as db:
             proj = await db.get(ResearchProject, project_id)
@@ -250,11 +265,16 @@ async def run_research(project_id: str, control: RunControl) -> None:
         await _set_progress(project_id, 95, "Generating report")
         await _build_report(project_id, provider)
 
+        # --- Build the compact research-memory record from the finalized rows --
+        memory_summary = await _build_memory_summary(project_id, as_of)
+
         async with _db_lock, SessionLocal() as db:
             proj = await db.get(ResearchProject, project_id)
             proj.status = ProjectStatus.COMPLETED
             proj.progress = 100
             proj.current_stage = "Completed"
+            proj.completed_at = datetime.now(timezone.utc)
+            proj.memory_summary = memory_summary
             await db.commit()
             owner_id, proj_title = proj.user_id, proj.title
 
@@ -703,6 +723,168 @@ async def _index_knowledge(project_id: str) -> None:
             f"Indexed {n} item(s) into the knowledge base",
             agent="knowledge", indexed=n,
         )
+
+
+async def _build_prior_context(parent_id: str):
+    """Selective memory of the parent run for a continuation's planner (#4, spec §8).
+    Bounded — high-confidence claims, open questions, known contradictions, prior
+    recommendation — never the whole report. Returns None if the parent is gone."""
+    from app.agents.planner import PriorContext
+
+    async with SessionLocal() as db:
+        parent = await db.get(ResearchProject, parent_id)
+        if parent is None:
+            return None
+        claims = (
+            await db.execute(select(Claim).where(Claim.project_id == parent_id))
+        ).scalars().all()
+        questions = (
+            await db.execute(
+                select(ResearchQuestion).where(ResearchQuestion.project_id == parent_id)
+            )
+        ).scalars().all()
+        gaps = (
+            await db.execute(
+                select(KnowledgeGap).where(KnowledgeGap.project_id == parent_id)
+            )
+        ).scalars().all()
+        conflicts = (
+            await db.execute(select(Conflict).where(Conflict.project_id == parent_id))
+        ).scalars().all()
+        rec = (
+            await db.execute(
+                select(Recommendation).where(Recommendation.project_id == parent_id)
+            )
+        ).scalars().first()
+        as_of = (
+            parent.completed_at.date().isoformat()
+            if parent.completed_at
+            else parent.updated_at.date().isoformat()
+        )
+        objective = parent.objective or parent.query
+
+    important = sorted(
+        (
+            c
+            for c in claims
+            if c.status in (ClaimStatus.VERIFIED, ClaimStatus.PARTIALLY_VERIFIED)
+        ),
+        key=lambda c: c.confidence,
+        reverse=True,
+    )[: settings.research_again_max_prior_claims]
+
+    open_questions = [q.text for q in questions if not q.answered]
+    open_questions += [g.question for g in gaps if not g.resolved]
+
+    contradictions = [
+        f"{c.statement_a} vs {c.statement_b}" for c in conflicts
+    ]
+    contradictions += [
+        c.text for c in claims if c.evidence_state == "conflicting"
+    ]
+
+    recommendation = None
+    if rec and rec.recommended_option:
+        recommendation = f"{rec.recommended_option} — {rec.rationale}".strip(" —")
+
+    return PriorContext(
+        objective=objective,
+        as_of=as_of,
+        high_confidence_claims=[c.text for c in important],
+        open_questions=open_questions[:12],
+        contradictions=contradictions[:8],
+        recommendation=recommendation,
+    )
+
+
+async def _build_memory_summary(project_id: str, as_of: str) -> dict:
+    """Compact structured memory record built from the finalized rows at completion
+    (#4, spec §23). Optimized for future retrieval, not prose. Best-effort."""
+    async with SessionLocal() as db:
+        proj = await db.get(ResearchProject, project_id)
+        claims = (
+            await db.execute(select(Claim).where(Claim.project_id == project_id))
+        ).scalars().all()
+        findings = (
+            await db.execute(select(Finding).where(Finding.project_id == project_id))
+        ).scalars().all()
+        sources = (
+            await db.execute(select(Source).where(Source.project_id == project_id))
+        ).scalars().all()
+        conflicts = (
+            await db.execute(select(Conflict).where(Conflict.project_id == project_id))
+        ).scalars().all()
+        questions = (
+            await db.execute(
+                select(ResearchQuestion).where(ResearchQuestion.project_id == project_id)
+            )
+        ).scalars().all()
+        gaps = (
+            await db.execute(
+                select(KnowledgeGap).where(KnowledgeGap.project_id == project_id)
+            )
+        ).scalars().all()
+        rec = (
+            await db.execute(
+                select(Recommendation).where(Recommendation.project_id == project_id)
+            )
+        ).scalars().first()
+        n_evidence = (
+            await db.execute(
+                select(ClaimSource).where(
+                    ClaimSource.claim_id.in_([c.id for c in claims] or [""])
+                )
+            )
+        ).scalars().all()
+
+    high = sorted(
+        (c for c in claims if c.status in (ClaimStatus.VERIFIED, ClaimStatus.PARTIALLY_VERIFIED)),
+        key=lambda c: c.confidence, reverse=True,
+    )
+    weak = [
+        c for c in claims
+        if c.status in (ClaimStatus.UNVERIFIED, ClaimStatus.INSUFFICIENT_EVIDENCE)
+    ]
+    conflicting = [c for c in claims if c.evidence_state == "conflicting"]
+    avg_conf = round(sum(c.confidence for c in claims) / len(claims), 1) if claims else 0.0
+    top_sources = sorted(sources, key=lambda s: s.reliability_score, reverse=True)[:8]
+
+    return {
+        "question": proj.query if proj else "",
+        "objective": (proj.objective if proj else "") or (proj.query if proj else ""),
+        "key_findings": [f.text for f in findings[:8]],
+        "high_confidence_claims": [
+            {"text": c.text, "confidence": c.confidence} for c in high[:10]
+        ],
+        "weak_claims": [{"text": c.text, "confidence": c.confidence} for c in weak[:10]],
+        "contradictions": [
+            {"statement_a": c.statement_a, "statement_b": c.statement_b}
+            for c in conflicts
+        ],
+        "open_questions": [q.text for q in questions if not q.answered]
+        + [g.question for g in gaps if not g.resolved],
+        "important_sources": [
+            {"title": s.title, "url": s.url, "reliability": s.reliability_score}
+            for s in top_sources
+        ],
+        "recommendation": (
+            {"option": rec.recommended_option, "confidence": rec.confidence}
+            if rec and rec.recommended_option
+            else None
+        ),
+        "counts": {
+            "sources": len(sources),
+            "claims": len(claims),
+            "evidence": len(n_evidence),
+        },
+        "confidence": {
+            "avg": avg_conf,
+            "supported": len([c for c in claims if c.status == ClaimStatus.VERIFIED]),
+            "weak": len(weak),
+            "conflicting": len(conflicting),
+        },
+        "as_of": as_of,
+    }
 
 
 async def _rd_analysis(project_id, provider) -> str:

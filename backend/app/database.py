@@ -34,6 +34,15 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 # when adding a nullable column to a pre-existing model.
 _ADDED_COLUMNS: dict[str, dict[str, str]] = {
     "claims": {"confidence_meta": "TEXT"},
+    # Research lineage (#4). All nullable/defaulted so existing rows are valid.
+    "research_projects": {
+        "parent_id": "TEXT",
+        "root_id": "TEXT",
+        "run_number": "INTEGER DEFAULT 1",
+        "run_intent": "TEXT",
+        "completed_at": "TIMESTAMP",
+        "memory_summary": "TEXT",
+    },
 }
 
 
@@ -54,6 +63,20 @@ async def _ensure_columns(conn) -> None:
                 )
 
 
+async def _backfill_lineage(conn) -> None:
+    """Idempotent: give pre-#4 projects a single-run lineage (root_id = own id).
+    A no-op once every row has a root_id."""
+    if conn.dialect.name != "sqlite":
+        return
+    result = await conn.exec_driver_sql("PRAGMA table_info(research_projects)")
+    cols = {row[1] for row in result.fetchall()}
+    if "root_id" not in cols:
+        return  # table absent or freshly created with all columns via create_all
+    await conn.exec_driver_sql(
+        "UPDATE research_projects SET root_id = id WHERE root_id IS NULL"
+    )
+
+
 async def init_db() -> None:
     """Create all tables. Import models first so they register on Base.metadata."""
     from app import models  # noqa: F401  (registers mappers)
@@ -61,3 +84,4 @@ async def init_db() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         await _ensure_columns(conn)
+        await _backfill_lineage(conn)

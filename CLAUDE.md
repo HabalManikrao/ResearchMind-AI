@@ -82,6 +82,37 @@ picker, and 📄 document evidence in the expandable Claims tab. New deps: `pypd
 (+ `reportlab` dev-only for test PDFs). Tests: `test_document_*.py` (parsing, chunking, security,
 service, API, pipeline offline+hybrid) + frontend `DocumentsPanel.test.tsx`.
 
+### Research Memory + Research Again + Research Diff (#4): a run IS a project
+Versioned research **reuses `ResearchProject` as the run** — no separate run table. Additive nullable
+lineage columns on `research_projects` (`parent_id`, `root_id`, `run_number`, `run_intent`,
+`completed_at`, `memory_summary`; migration via `_ensure_columns` + an idempotent `root_id` backfill in
+`database._backfill_lineage`). Originals set `root_id = self.id`/`run_number = 1`/`run_intent =
+"original"` (`api/research.py:create_research`); a **whole lineage is one indexed query on `root_id`**.
+Completed runs are **immutable snapshots** — nothing rewrites them and `/start` already blocks re-runs.
+- **Research Again** (`POST /research/{id}/research-again`, intents `refresh|deepen|verify|full`)
+  **forks a new linked project** and starts it; the parent is read-only. The orchestrator builds the
+  parent's **selective prior context** (`_build_prior_context`: top high-confidence claims, open
+  questions, known contradictions, prior recommendation, previous date) and threads it into the planner
+  (`planner.make_plan(prior_context=, intent=)` — `PriorContext` + per-intent system addendum) with
+  **zero extra LLM calls**. At completion the orchestrator writes `memory_summary` (`_build_memory_summary`).
+- **Document carry-forward** (`documents/service.carry_forward_documents`): a re-run copies the parent's
+  READY documents — each gets its **own physical file copy** (so neither run's delete orphans the other)
+  and **chunk vectors are copied without re-embedding** (`vector_store.copy_document_vectors` =
+  retrieve+re-upsert under the new `project_id`; CPU-free, isolation preserved). Best-effort/non-fatal.
+- **Research Diff** (`GET /research/{id}/diff/{other_id}`, `services/research_diff.py`) is
+  **deterministic, no LLM in the default path**: sources by `dedup.normalize_url`; claims matched
+  normalized-text → token-set (Jaccard) → optional embedding cosine on the remainder (offline-safe);
+  evidence-aware categories (`new/removed/unchanged/strengthened/weakened/contradicted`) with **reasons
+  built from `confidence_meta`** (never invented); confidence deltas; recommendation diff
+  (`unchanged/modified/reversed/new/removed`); document diff by identity + checksum. Both ids go through
+  `_get_project` and must share `root_id` (else 404).
+- **Lineage/memory APIs**: `GET /research/{id}/runs` (lineage + per-run counts) and `GET /memory`.
+  **Frontend:** lineage bar + Research Again intent picker in the live view, a dedicated **RunDiff**
+  page (`research/:id/diff/:otherId`, previous→current evidence drill-down), lineage-grouped **History**.
+  Config: `research_again_*` / `research_diff_*`. Tests: `test_research_diff.py`,
+  `test_research_again.py`, `test_migration_lineage.py` + frontend `RunDiff/History/LineageBar.test.tsx`.
+  Docs: `docs/RESEARCH-MEMORY-{IMPLEMENTATION-PLAN,COMPLETION}.md`.
+
 ### Report is assembled deterministically from structured data
 The report LLM writes ONLY interpretive prose (Executive Summary / Key Findings / Detailed Analysis /
 Knowledge Gaps). Everything decision-bearing is injected from stored rows so it stays evidence-
@@ -175,12 +206,13 @@ mark-read/read-all/delete). **Frontend:** `pages/Scheduled.tsx`, `pages/Notifica
 Not yet built (remaining Phase 7): the **Postgres/Redis** swap (SQLite → Postgres, in-process SSE bus →
 Redis pub/sub, in-process scheduler → Redis/Celery beat — all already behind seams). `net.validate_url`
 exists as the SSRF control for any new outbound-fetch path — route new fetches through it. A pytest suite
-(`backend/tests/`, 152 tests) covers units, API, middleware, auth + access control, schedules,
+(`backend/tests/`, 175 tests) covers units, API, middleware, auth + access control, schedules,
 notifications, the evidence engine (freshness, scoring, contradiction agent, evidence API),
 Document RAG (parsing, chunking, upload security, service, documents API, offline+hybrid pipeline),
-and the full faked pipeline — run it before and after changes (see Commands). The **frontend** now
-also has a Vitest suite (`frontend/`, `npm test`, 13 tests: evidence mapping, `ClaimsTab` +
-`DocumentsPanel` DOM behavior).
+research memory/again/diff (diff engine, lineage, immutability, carry-forward, migration), and the
+full faked pipeline — run it before and after changes (see Commands). The **frontend** now
+also has a Vitest suite (`frontend/`, `npm test`, 20 tests: evidence mapping, `ClaimsTab` +
+`DocumentsPanel` DOM behavior, RunDiff + History lineage + LineageBar).
 
 ## Intended Architecture
 
@@ -266,7 +298,7 @@ cp .env.example .env                                       # set TAVILY_API_KEY,
 - API docs `http://localhost:8000/docs`; health `http://localhost:8000/health` (checks Ollama + Tavily).
 - Tables auto-create on startup (`init_db()` in `app/database.py`) — no migrations yet; columns
   added to existing tables are applied by the idempotent `_ensure_columns` ALTER (see `_ADDED_COLUMNS`).
-- **Tests:** `pip install -r requirements-dev.txt` then `.venv/Scripts/python -m pytest` (152 tests,
+- **Tests:** `pip install -r requirements-dev.txt` then `.venv/Scripts/python -m pytest` (175 tests,
   ~127s, all offline). Config in `pytest.ini` (`asyncio_mode=auto`). `tests/conftest.py` binds an
   isolated temp SQLite DB + Qdrant path via env before app import (incl. `AUTH_ENABLED=true` +
   `JWT_SECRET`), and provides fixtures: `client` (ASGI, **auto-registers a user and attaches its bearer

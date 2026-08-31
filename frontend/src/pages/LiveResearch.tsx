@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -10,6 +10,8 @@ import {
   Download,
   ChevronDown,
   ChevronRight,
+  RefreshCw,
+  GitCompare,
 } from "lucide-react";
 import { api } from "../api/client";
 import type {
@@ -21,6 +23,7 @@ import type {
   Question,
   Recommendation,
   Report,
+  RunSummary,
   Solution,
   Source,
 } from "../api/types";
@@ -52,7 +55,9 @@ const ACTIVE = ["running", "planning", "paused"];
 
 export default function LiveResearch() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [project, setProject] = useState<ProjectDetail | null>(null);
+  const [runs, setRuns] = useState<RunSummary[]>([]);
   const [tab, setTab] = useState<Tab>("activity");
   const [questions, setQuestions] = useState<Question[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
@@ -96,6 +101,8 @@ export default function LiveResearch() {
     setReport(r);
     // Graph is derived from stored rows; refresh it too (best-effort).
     api.knowledgeGraph(id).then(setGraph).catch(() => setGraph(null));
+    // Lineage (runs sharing this project's root) for the Research Again / diff bar.
+    api.runs(id).then(setRuns).catch(() => setRuns([]));
   }, [id]);
 
   // Initial load.
@@ -182,6 +189,15 @@ export default function LiveResearch() {
         {project.error && <p className="mt-3 text-sm text-red-600">Error: {project.error}</p>}
       </Card>
 
+      <LineageBar
+        project={project}
+        runs={runs}
+        onAgain={async (intent) => {
+          const child = await api.researchAgain(project.id, { intent });
+          navigate(`/research/${child.id}`);
+        }}
+      />
+
       <div className="flex gap-1 border-b border-slate-200">
         {TABS.map((t) => (
           <button
@@ -219,6 +235,96 @@ export default function LiveResearch() {
       {tab === "graph" && <GraphTab graph={graph} />}
       {tab === "report" && <ReportTab report={report} isActive={isActive} />}
     </div>
+  );
+}
+
+const INTENTS: { value: "refresh" | "deepen" | "verify" | "full"; label: string; hint: string }[] = [
+  { value: "refresh", label: "Refresh", hint: "Re-check whether prior findings still hold; prefer newer info" },
+  { value: "deepen", label: "Deepen", hint: "Focus on the open / unresolved questions" },
+  { value: "verify", label: "Verify", hint: "Re-check the important prior claims" },
+  { value: "full", label: "Full re-research", hint: "Fresh comprehensive run, prior run kept as context" },
+];
+
+export function LineageBar({
+  project,
+  runs,
+  onAgain,
+}: {
+  project: ProjectDetail;
+  runs: RunSummary[];
+  onAgain: (intent: "refresh" | "deepen" | "verify" | "full") => Promise<void>;
+}) {
+  const [intent, setIntent] = useState<"refresh" | "deepen" | "verify" | "full">("refresh");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  // Only meaningful once a run is completed (you continue a finished snapshot) or
+  // when this project is part of a multi-run lineage.
+  const completed = project.status === "completed";
+  if (!completed && runs.length <= 1) return null;
+
+  const total = runs.length || 1;
+  const current = project.run_number || 1;
+  const previous = runs
+    .filter((r) => r.run_number < current)
+    .sort((a, b) => b.run_number - a.run_number)[0];
+
+  const doAgain = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      await onAgain(intent);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to start a new run");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card className="flex flex-wrap items-center justify-between gap-3 border-slate-200 bg-slate-50/60 py-3">
+      <div className="flex items-center gap-2 text-sm text-slate-600">
+        <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
+          Run #{current}{total > 1 ? ` of ${total}` : ""}
+        </span>
+        {project.run_intent && project.run_intent !== "original" && (
+          <span className="text-xs uppercase tracking-wide text-slate-400">
+            {project.run_intent}
+          </span>
+        )}
+        {previous && (
+          <Link
+            to={`/research/${project.id}/diff/${previous.id}`}
+            className="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:underline"
+          >
+            <GitCompare className="h-3.5 w-3.5" /> Compare with Run #{previous.run_number}
+          </Link>
+        )}
+      </div>
+
+      {completed && (
+        <div className="flex items-center gap-2">
+          {err && <span className="text-xs text-red-600">{err}</span>}
+          <select
+            value={intent}
+            onChange={(e) => setIntent(e.target.value as typeof intent)}
+            title={INTENTS.find((i) => i.value === intent)?.hint}
+            className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-700 focus:border-brand-500 focus:outline-none"
+          >
+            {INTENTS.map((i) => (
+              <option key={i.value} value={i.value}>{i.label}</option>
+            ))}
+          </select>
+          <button
+            onClick={doAgain}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
+          >
+            <RefreshCw className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} />
+            {busy ? "Starting…" : "Research Again"}
+          </button>
+        </div>
+      )}
+    </Card>
   );
 }
 

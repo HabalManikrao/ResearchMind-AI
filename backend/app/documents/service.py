@@ -326,6 +326,121 @@ async def retrieve(
     return out
 
 
+async def carry_forward_documents(
+    *, parent_project_id: str, new_project_id: str, new_user_id: str | None,
+) -> int:
+    """Copy a parent run's READY documents into a continuation run (Research Again, #4).
+
+    Reuses the parent's on-disk file (checksum dedup guarantees it exists) and copies
+    each chunk's vector WITHOUT re-embedding (``vs.copy_document_vectors``), re-pointed
+    under the new project_id so retrieval isolation still holds. Best-effort: returns
+    the number of documents carried; a vector-copy failure leaves the doc rows in place
+    (retrieval simply finds nothing for it) and never raises into the run.
+    """
+    async with SessionLocal() as db:
+        parent_docs = (
+            await db.execute(
+                select(Document).where(
+                    Document.project_id == parent_project_id,
+                    Document.status == DocumentStatus.READY,
+                )
+            )
+        ).scalars().all()
+        if not parent_docs:
+            return 0
+        parent_ids = [d.id for d in parent_docs]
+        chunks = (
+            await db.execute(
+                select(DocumentChunk).where(DocumentChunk.document_id.in_(parent_ids))
+            )
+        ).scalars().all()
+
+    chunks_by_doc: dict[str, list[DocumentChunk]] = {}
+    for ch in chunks:
+        chunks_by_doc.setdefault(ch.document_id, []).append(ch)
+
+    carried = 0
+    for src_doc in parent_docs:
+        new_doc_id = uuid.uuid4().hex
+        # Give the copy its OWN physical file so deleting either run's document never
+        # orphans the other (delete_document os.remove()s the storage_path).
+        try:
+            content = Path(src_doc.storage_path).read_bytes()
+            new_storage_path = _store_file(content, _ext_of(src_doc.original_filename))
+        except OSError:
+            continue  # parent file missing -> skip this doc (best-effort)
+        vector_map: list[dict] = []
+        new_rows: list[DocumentChunk] = []
+        for ch in chunks_by_doc.get(src_doc.id, []):
+            new_chunk_id = uuid.uuid4().hex
+            new_rows.append(
+                DocumentChunk(
+                    id=new_chunk_id,
+                    document_id=new_doc_id,
+                    project_id=new_project_id,
+                    chunk_index=ch.chunk_index,
+                    text=ch.text,
+                    page_number=ch.page_number,
+                    section=ch.section,
+                    char_start=ch.char_start,
+                    char_end=ch.char_end,
+                    token_count=ch.token_count,
+                    point_id=new_chunk_id,
+                    meta=dict(ch.meta or {}),
+                )
+            )
+            if ch.point_id:
+                vector_map.append(
+                    {
+                        "old_point_id": ch.point_id,
+                        "new_point_id": new_chunk_id,
+                        "payload": {
+                            "project_id": new_project_id,
+                            "document_id": new_doc_id,
+                            "chunk_id": new_chunk_id,
+                            "chunk_index": ch.chunk_index,
+                            "page_number": ch.page_number,
+                            "section": ch.section,
+                            "filename": src_doc.original_filename,
+                            "text": ch.text,
+                            "published_date": (src_doc.meta or {}).get("published_date"),
+                        },
+                    }
+                )
+        try:
+            copied = vs.copy_document_vectors(vector_map)
+        except Exception:  # noqa: BLE001 - carry-forward is best-effort, never fatal
+            copied = 0
+
+        async with SessionLocal() as db:
+            db.add(
+                Document(
+                    id=new_doc_id,
+                    project_id=new_project_id,
+                    user_id=new_user_id,
+                    filename=src_doc.filename,
+                    original_filename=src_doc.original_filename,
+                    mime_type=src_doc.mime_type,
+                    size_bytes=src_doc.size_bytes,
+                    checksum=src_doc.checksum,  # same content → unchanged in the document diff
+                    storage_path=new_storage_path,
+                    status=DocumentStatus.READY if copied else DocumentStatus.FAILED,
+                    page_count=src_doc.page_count,
+                    word_count=src_doc.word_count,
+                    chunk_count=len(new_rows) if copied else 0,
+                    processed_at=src_doc.processed_at,
+                    error_message=None if copied else "Vector carry-forward failed.",
+                    meta=dict(src_doc.meta or {}),
+                )
+            )
+            if copied:
+                for row in new_rows:
+                    db.add(row)
+            await db.commit()
+        carried += 1 if copied else 0
+    return carried
+
+
 async def delete_document(document_id: str) -> bool:
     async with SessionLocal() as db:
         doc = await db.get(Document, document_id)

@@ -105,6 +105,14 @@ class Settings(BaseSettings):
     document_retrieval_min_score: float = 0.25         # cosine score floor for a hit
     document_embed_batch: int = 16                     # embedding batch size (CPU-bounded)
 
+    # Research Memory + Research Again + Diff (#4): versioned runs and change detection.
+    research_again_max_prior_claims: int = 12          # high-confidence claims fed to the planner
+    research_again_carry_documents: bool = True        # copy parent docs+vectors into a re-run
+    research_diff_semantic: bool = True                # embedding-based claim matching fallback
+    research_diff_semantic_threshold: float = 0.82     # cosine floor to call two claims "the same"
+    research_diff_token_threshold: float = 0.6         # Jaccard floor for deterministic near-match
+    research_diff_confidence_delta: float = 8.0        # min Δ to call a claim strengthened/weakened
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

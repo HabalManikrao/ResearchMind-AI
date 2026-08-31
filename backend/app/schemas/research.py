@@ -45,6 +45,12 @@ class ProjectSummary(ORMModel):
     current_stage: str | None
     created_at: datetime
     updated_at: datetime
+    # Research lineage (#4).
+    parent_id: str | None = None
+    root_id: str | None = None
+    run_number: int = 1
+    run_intent: str | None = None
+    completed_at: datetime | None = None
 
 
 class ProjectDetail(ProjectSummary):
@@ -53,6 +59,36 @@ class ProjectDetail(ProjectSummary):
     sources_enabled: list
     error: str | None
     report_meta: dict | None
+
+
+class ResearchAgainRequest(BaseModel):
+    """Fork a completed run into a continuation run (#4)."""
+
+    intent: str = Field("refresh", pattern="^(refresh|deepen|verify|full)$")
+    mode: ResearchMode | None = None  # inherit parent's mode if omitted
+    sources_enabled: list[str] | None = None  # inherit parent's sources if omitted
+    auto_start: bool = True
+
+
+class RunSummary(ORMModel):
+    """One run in a lineage, with quick counts for the history/lineage view."""
+
+    id: str
+    run_number: int
+    run_intent: str | None
+    status: ProjectStatus
+    created_at: datetime
+    completed_at: datetime | None
+    parent_id: str | None
+    source_count: int = 0
+    claim_count: int = 0
+    evidence_count: int = 0
+    avg_confidence: float = 0.0
+
+
+class MemoryOut(BaseModel):
+    project_id: str
+    memory: dict | None
 
 
 class QuestionOut(ORMModel):
@@ -212,3 +248,96 @@ class GraphEdge(BaseModel):
 class GraphOut(BaseModel):
     nodes: list[GraphNode]
     edges: list[GraphEdge]
+
+
+# --------------------------------------------------------------------------- #
+# Research Diff (#4) — serialized from services/research_diff dataclasses.
+# --------------------------------------------------------------------------- #
+class DiffModel(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DiffEvidenceItem(DiffModel):
+    title: str
+    url: str
+    source_type: str
+    stance: str
+    passage: str | None = None
+    page_number: int | None = None
+
+
+class SourceDiffItemOut(DiffModel):
+    kind: str
+    url: str
+    title: str
+    source_type: str
+    changes: list[str] = Field(default_factory=list)
+
+
+class ClaimDiffItemOut(DiffModel):
+    kind: str
+    old_text: str | None = None
+    new_text: str | None = None
+    old_confidence: float | None = None
+    new_confidence: float | None = None
+    confidence_delta: float | None = None
+    direction: str = ""
+    reason: str = ""
+    match_score: float | None = None
+    old_evidence: list[DiffEvidenceItem] = Field(default_factory=list)
+    new_evidence: list[DiffEvidenceItem] = Field(default_factory=list)
+
+
+class DocumentDiffItemOut(DiffModel):
+    kind: str
+    document_id: str | None = None
+    filename: str
+    changes: list[str] = Field(default_factory=list)
+
+
+class SourceDiffOut(DiffModel):
+    new: int = 0
+    removed: int = 0
+    unchanged: int = 0
+    changed: int = 0
+    items: list[SourceDiffItemOut] = Field(default_factory=list)
+
+
+class ClaimDiffOut(DiffModel):
+    new: int = 0
+    removed: int = 0
+    unchanged: int = 0
+    strengthened: int = 0
+    weakened: int = 0
+    contradicted: int = 0
+    items: list[ClaimDiffItemOut] = Field(default_factory=list)
+
+
+class DocumentDiffOut(DiffModel):
+    new: int = 0
+    removed: int = 0
+    unchanged: int = 0
+    changed: int = 0
+    items: list[DocumentDiffItemOut] = Field(default_factory=list)
+
+
+class ConfidenceDiffOut(BaseModel):
+    increased: int = 0
+    decreased: int = 0
+    unchanged: int = 0
+
+
+class RecommendationDiffOut(BaseModel):
+    kind: str
+    old: dict | None = None
+    new: dict | None = None
+
+
+class ResearchDiffOut(BaseModel):
+    old_run: dict
+    new_run: dict
+    sources: SourceDiffOut
+    claims: ClaimDiffOut
+    confidence: ConfidenceDiffOut
+    recommendation: RecommendationDiffOut
+    documents: DocumentDiffOut
