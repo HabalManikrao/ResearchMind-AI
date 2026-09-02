@@ -34,11 +34,13 @@ import {
   EvidenceStateBadge,
   FreshnessPill,
   ProgressBar,
+  ProvenancePill,
   ReliabilityPill,
 } from "../components/ui";
 import KnowledgeGraphView from "../components/KnowledgeGraphView";
 import DocumentsPanel from "../components/DocumentsPanel";
-import type { KnowledgeGraph } from "../api/types";
+import type { KnowledgeGraph, SourceHealth } from "../api/types";
+import { researchHealthMeta } from "../lib/provenance";
 
 type Tab =
   | "activity"
@@ -197,6 +199,8 @@ export default function LiveResearch() {
           navigate(`/research/${child.id}`);
         }}
       />
+
+      <ResearchHealthBanner health={project.report_meta?.source_health} />
 
       <div className="flex gap-1 border-b border-slate-200">
         {TABS.map((t) => (
@@ -480,6 +484,55 @@ function SourceMeta({ source }: { source: Source }) {
   return <div className="mt-1 text-xs text-slate-500">{bits.join(" · ")}</div>;
 }
 
+/**
+ * Research Health banner (#5): shows the run's live/cached/local/unavailable source
+ * mix. Rendered only when there's something worth disclosing — a fully-live run stays
+ * quiet so the UI doesn't nag (spec §15, §22, §38).
+ */
+export function ResearchHealthBanner({ health }: { health?: SourceHealth | null }) {
+  if (!health) return null;
+  const quiet =
+    health.research_health === "fully_live" && !health.unavailable && !health.cached;
+  if (quiet) return null;
+
+  const m = researchHealthMeta(health.research_health);
+  const counts: [string, number][] = [
+    ["Live", health.live],
+    ["Cached", health.cached],
+    ["Local", health.local],
+    ["Stale", health.stale],
+    ["Unavailable", health.unavailable],
+  ];
+  return (
+    <div className={`rounded-lg border px-3 py-2 text-sm ${m.className}`}>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="font-medium">
+          {m.dot} Research Health — {m.label}
+        </span>
+        <span className="flex flex-wrap gap-x-3 text-xs opacity-90">
+          {counts
+            .filter(([, n]) => n > 0)
+            .map(([label, n]) => (
+              <span key={label}>
+                {label}: {n}
+              </span>
+            ))}
+        </span>
+      </div>
+      {health.research_mode === "local" && (
+        <p className="mt-1 text-xs opacity-90">
+          Performed using local/cached sources; live web verification was unavailable.
+        </p>
+      )}
+      {health.unavailable > 0 && (
+        <p className="mt-1 text-xs opacity-90">
+          Some external sources could not be reached — coverage is incomplete.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function SourcesTab({ sources }: { sources: Source[] }) {
   const [filter, setFilter] = useState<string>("all");
   if (sources.length === 0)
@@ -519,6 +572,7 @@ function SourcesTab({ sources }: { sources: Source[] }) {
           </div>
           {s.summary && <p className="mt-1 text-sm text-slate-600">{s.summary}</p>}
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            <ProvenancePill availability={s.availability} />
             <FreshnessPill freshness={s.freshness} />
             <SourceMeta source={s} />
           </div>
@@ -718,6 +772,7 @@ function EvidenceGroup({
               </div>
             </div>
             <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <ProvenancePill availability={it.availability} />
               <FreshnessPill freshness={it.freshness} />
               {it.published_date && (
                 <span className="text-xs text-slate-400">{it.published_date}</span>

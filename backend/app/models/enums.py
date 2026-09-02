@@ -70,6 +70,22 @@ class DocumentStatus(str, enum.Enum):
     FAILED = "failed"
 
 
+class SourcePolicy(str, enum.Enum):
+    """How a research run is allowed to source evidence (Connectivity Intelligence,
+    #5, spec §11, §12). Controls the live/cached/local fallback behaviour.
+
+    LIVE_ONLY      — external evidence must be freshly retrieved; never serve cache.
+    LIVE_PREFERRED — try live first, fall back to cache, then local (the default).
+    CACHE_ALLOWED  — same as live_preferred but cache is used freely/eagerly.
+    LOCAL_ONLY     — no external fetches at all; documents/memory/DB only (offline).
+    """
+
+    LIVE_ONLY = "live_only"
+    LIVE_PREFERRED = "live_preferred"
+    CACHE_ALLOWED = "cache_allowed"
+    LOCAL_ONLY = "local_only"
+
+
 class EvidenceStance(str, enum.Enum):
     """How a source relates to a claim in the evidence graph (spec §6).
 

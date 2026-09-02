@@ -57,6 +57,7 @@ export interface ProjectDetail extends ProjectSummary {
   objective: string | null;
   constraints: Record<string, unknown>;
   sources_enabled: string[];
+  source_policy: SourcePolicy | null; // #5
   error: string | null;
   report_meta: ReportMeta | null;
 }
@@ -82,6 +83,32 @@ export interface Task {
 
 export type Freshness = "fresh" | "aging" | "stale" | "unknown";
 
+// Connectivity Intelligence (#5).
+export type Provenance =
+  | "live_web"
+  | "cached_web"
+  | "local_document"
+  | "local_memory"
+  | "local_database";
+export type Availability =
+  | "live"
+  | "cached"
+  | "local"
+  | "stale"
+  | "unavailable"
+  | "unknown";
+export type ResearchHealth =
+  | "fully_live"
+  | "partially_degraded"
+  | "cache_assisted"
+  | "local_only"
+  | "external_unavailable";
+export type SourcePolicy =
+  | "live_only"
+  | "live_preferred"
+  | "cache_allowed"
+  | "local_only";
+
 export interface Source {
   id: string;
   title: string;
@@ -93,6 +120,8 @@ export interface Source {
   reliability_score: number;
   relevance_score: number;
   freshness: Freshness;
+  provenance: Provenance;
+  availability: Availability;
   meta: Record<string, unknown>;
 }
 
@@ -133,6 +162,8 @@ export interface ClaimEvidenceItem {
   published_date: string | null;
   reliability_score: number;
   freshness: Freshness;
+  provenance: Provenance;
+  availability: Availability;
   stance: EvidenceStance;
   passage: string | null;
   page_number: number | null;
@@ -233,6 +264,21 @@ export interface KnowledgeGap {
   resolved: boolean;
 }
 
+export interface SourceHealth {
+  live: number;
+  cached: number;
+  local: number;
+  stale: number;
+  unknown: number;
+  unavailable: number;
+  provider_failures: number;
+  fallback_count: number;
+  retry_count: number;
+  connectivity_state: string;
+  research_mode: string; // live | hybrid | cache | local | unknown
+  research_health: ResearchHealth;
+}
+
 export interface ReportMeta {
   overall_confidence: number;
   sources_analyzed: number;
@@ -240,6 +286,7 @@ export interface ReportMeta {
   verified_claims: number;
   conflicted_claims: number;
   total_claims: number;
+  source_health?: SourceHealth; // #5
 }
 
 export interface Report {
@@ -255,6 +302,21 @@ export interface CreateResearch {
   sources_enabled: string[];
   constraints: Record<string, unknown>;
   auto_start: boolean;
+  source_policy?: SourcePolicy; // #5; omit for backend default (live_preferred)
+}
+
+export interface Connectivity {
+  enabled: boolean;
+  overall_status: string;
+  recovering?: boolean;
+  internet?: boolean | null;
+  providers?: { search: boolean | null };
+  local_services?: {
+    ollama: boolean | null;
+    qdrant: boolean | null;
+    database: boolean | null;
+  };
+  research_mode?: string;
 }
 
 export interface KnowledgeSearchResult {

@@ -1,6 +1,9 @@
+import { useEffect, useState } from "react";
 import { CheckCircle2, XCircle, AlertTriangle, Loader2 } from "lucide-react";
 import { useHealth } from "../hooks/useHealth";
-import type { HealthStatus } from "../api/types";
+import { api } from "../api/client";
+import type { Connectivity, HealthStatus } from "../api/types";
+import { connectivityMeta } from "../lib/provenance";
 
 type Tone = "ok" | "warn" | "bad";
 
@@ -40,6 +43,35 @@ function hints(h: HealthStatus): string[] {
   return out;
 }
 
+/** Live connectivity pill (#5): overall online/degraded/local/offline state. */
+function ConnectivityPill() {
+  const [conn, setConn] = useState<Connectivity | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const tick = () =>
+      api
+        .connectivity()
+        .then((c) => alive && setConn(c))
+        .catch(() => alive && setConn(null));
+    tick();
+    const id = setInterval(tick, 30000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
+  if (!conn || !conn.enabled) return null;
+  const m = connectivityMeta(conn.overall_status);
+  return (
+    <span
+      title={`Connectivity: ${m.label}${conn.research_mode ? ` · ${conn.research_mode} research` : ""}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${m.className}`}
+    >
+      {m.dot} {m.label}
+    </span>
+  );
+}
+
 export default function SystemStatus({ compact = false }: { compact?: boolean }) {
   const { health, error, loading } = useHealth();
 
@@ -68,6 +100,7 @@ export default function SystemStatus({ compact = false }: { compact?: boolean })
 
   const pills = (
     <div className="flex flex-wrap items-center gap-2">
+      <ConnectivityPill />
       <Pill
         tone={llmTone}
         label={

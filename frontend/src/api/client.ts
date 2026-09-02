@@ -2,6 +2,7 @@ import type {
   AuthResponse,
   Claim,
   ClaimEvidenceResponse,
+  Connectivity,
   Conflict,
   CreateResearch,
   DocumentItem,
@@ -91,6 +92,7 @@ export const api = {
   me: () => req<User>("/auth/me"),
 
   health: () => req<HealthStatus>("/health"),
+  connectivity: () => req<Connectivity>("/system/connectivity"),
   createResearch: (body: CreateResearch) =>
     req<ProjectDetail>("/research", { method: "POST", body: JSON.stringify(body) }),
   listResearch: () => req<ProjectSummary[]>("/research"),

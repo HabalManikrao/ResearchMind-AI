@@ -42,6 +42,8 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
         "run_intent": "TEXT",
         "completed_at": "TIMESTAMP",
         "memory_summary": "TEXT",
+        # Connectivity Intelligence (#5): live/cached/local sourcing policy.
+        "source_policy": "TEXT",
     },
 }
 

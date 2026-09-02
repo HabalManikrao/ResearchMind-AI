@@ -67,6 +67,26 @@ lineage-grouped History. Additive/idempotent migration with a `root_id` backfill
 
 ---
 
+## ⚑ Implementation status — Milestone #5 Connectivity Intelligence DONE (2026-09-01)
+
+Source-aware research resilience (**#5**) is implemented, tested, shipped. ResearchMind now knows the
+availability of every source and switches between **live/cached/local** evidence — **never** labelling
+cached/local evidence as live. Reuse-first: **provenance** rides on `Source.meta` + computed
+`Source.provenance`/`availability` (zero migration); a **layered, on-demand-cached connectivity
+manager** (`services/connectivity.py`, `GET /system/connectivity`) probes internet/provider/Ollama/
+Qdrant/DB with bounded timeouts (states online/degraded/local_only/offline/recovering); the only new
+store is a **project-isolated web cache** (`cached_sources`, TTL by type). A source-agnostic
+**`resilient_collect`** wrapper does live→cache→local fallback under a per-run **`SourcePolicy`**
+(live_only/live_preferred/cache_allowed/local_only). Partial failure never kills a run; **recovery**
+retries failed external tasks once when connectivity returns. Run health (live/cached/local/stale/
+unavailable + `research_health`) lands in `report_meta`, the report **discloses** cache/local sourcing
+only when true, and the diff detects `availability live → cached`. **Confidence is untouched** (no
+offline penalty). Frontend: provenance pills, a Research Health banner, a connectivity pill, and a
+source-policy picker. See `docs/CONNECTIVITY-INTELLIGENCE-IMPLEMENTATION-PLAN.md` and
+`docs/CONNECTIVITY-INTELLIGENCE-COMPLETION.md`.
+
+---
+
 ## A. Current Architecture (as-built)
 
 ```

@@ -113,6 +113,24 @@ class Settings(BaseSettings):
     research_diff_token_threshold: float = 0.6         # Jaccard floor for deterministic near-match
     research_diff_confidence_delta: float = 8.0        # min Δ to call a claim strengthened/weakened
 
+    # Connectivity Intelligence (#5): live/cached/local source resilience.
+    connectivity_enabled: bool = True                  # layered health probing on/off
+    connectivity_timeout_seconds: float = 3.0          # per-probe bound (spec §5, §32)
+    connectivity_cache_seconds: int = 60               # snapshot TTL — don't re-probe per source
+    connectivity_max_retries: int = 1                  # bounded recovery retry of failed tasks (§26)
+    # Default sourcing policy for new runs: live_only|live_preferred|cache_allowed|local_only.
+    default_source_policy: str = "live_preferred"
+    # Web-source cache (spec §9-§11). Reuse previously-retrieved external results when
+    # the live provider is unavailable and policy allows.
+    source_cache_enabled: bool = True
+    # Cache TTL by source type, in MINUTES (spec §10). News stales fast; papers slowly.
+    cache_ttl_news_minutes: int = 360                  # 6h
+    cache_ttl_web_minutes: int = 1440                  # 1d (also community)
+    cache_ttl_docs_minutes: int = 10080                # 7d
+    cache_ttl_github_minutes: int = 2880               # 2d
+    cache_ttl_papers_minutes: int = 43200              # 30d
+    cache_ttl_documents_minutes: int = 43200           # 30d (local, rarely refetched)
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

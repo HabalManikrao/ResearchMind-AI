@@ -308,3 +308,36 @@ async def test_document_diff(db):
     assert d.documents["changed"] == 1
     assert d.documents["removed"] == 1
     assert d.documents["new"] == 1
+
+
+# --------------------------------------------------------------------------- #
+# provenance / availability change (#5, spec §21)
+# --------------------------------------------------------------------------- #
+async def test_source_availability_change_live_to_cached(db):
+    old = await _mk_run(db, run_number=1)
+    new = await _mk_run(db, run_number=2, root_id=old.root_id, parent_id=old.id)
+    # Same URL & publish date across runs; provenance flips live -> cached.
+    await _add_source(db, old.id, "https://x.example", published_date="2026-08-15",
+                      meta={"provenance": "live_web"})
+    await _add_source(db, new.id, "https://x.example", published_date="2026-08-15",
+                      meta={"provenance": "cached_web"})
+    await db.commit()
+
+    d = await research_diff.diff_runs(old.id, new.id)
+    assert d.sources["changed"] == 1
+    changed = next(i for i in d.sources["items"] if i.kind == "changed")
+    assert any("availability live → cached" in c for c in changed.changes)
+
+
+async def test_unchanged_source_provenance_not_flagged(db):
+    old = await _mk_run(db, run_number=1)
+    new = await _mk_run(db, run_number=2, root_id=old.root_id, parent_id=old.id)
+    # Identical live source across runs -> unchanged (no false positive, spec §21).
+    for pid in (old.id, new.id):
+        await _add_source(db, pid, "https://y.example", published_date="2026-08-15",
+                          meta={"provenance": "live_web"})
+    await db.commit()
+
+    d = await research_diff.diff_runs(old.id, new.id)
+    assert d.sources["unchanged"] == 1
+    assert d.sources["changed"] == 0

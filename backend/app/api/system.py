@@ -1,10 +1,11 @@
-"""Health & settings endpoints (spec §22 settings surface)."""
+"""Health, connectivity & settings endpoints (spec §22, §37)."""
 from __future__ import annotations
 
 from fastapi import APIRouter
 
 from app.config import get_settings
 from app.llm import get_provider
+from app.services import connectivity
 
 router = APIRouter(tags=["system"])
 
@@ -44,6 +45,32 @@ async def health():
             "papers": True,  # arXiv needs no key
         },
         "github_token_configured": bool(s.github_token),
+    }
+
+
+@router.get("/system/connectivity")
+async def read_connectivity():
+    """Layered connectivity snapshot (#5, spec §37): overall state, internet, the
+    search provider, and local services (Ollama/Qdrant/DB), plus the effective research
+    mode. Cached briefly; exposes no secrets or internal network detail."""
+    s = get_settings()
+    if not s.connectivity_enabled:
+        return {"enabled": False, "overall_status": "unknown"}
+    snap = await connectivity.manager.snapshot()
+    mode = connectivity.research_mode_for(snap, s.default_source_policy)
+    return {
+        "enabled": True,
+        "overall_status": snap.overall,
+        "recovering": snap.recovering,
+        "internet": snap.internet,
+        "providers": {"search": snap.search_provider},
+        "local_services": {
+            "ollama": snap.ollama,
+            "qdrant": snap.qdrant,
+            "database": snap.database,
+        },
+        "research_mode": mode,
+        "last_checked_age_seconds": None,
     }
 
 

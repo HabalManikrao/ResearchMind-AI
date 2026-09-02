@@ -61,6 +61,7 @@ class ReportInput:
     recommendation: dict | None = None  # structured R&D recommendation
     mode: str = ""  # ResearchMode value; "market" switches to the market layout
     as_of: str | None = None  # snapshot date for Market Intelligence mode
+    source_health: dict | None = None  # #5 live/cached/local/unavailable summary
 
 
 async def generate_report(provider: AIProvider, data: ReportInput) -> tuple[str, dict]:
@@ -150,6 +151,7 @@ def _assemble(data: ReportInput, narrative: str) -> str:
     )
     return (
         header
+        + _health_md(data)
         + narrative.strip()
         + "\n"
         + _rd_md(data)
@@ -157,6 +159,54 @@ def _assemble(data: ReportInput, narrative: str) -> str:
         + sources_md
         + conf_md
     )
+
+
+_HEALTH_LABELS = {
+    "fully_live": "Fully live",
+    "partially_degraded": "Partially degraded",
+    "cache_assisted": "Cache-assisted",
+    "local_only": "Local only",
+    "external_unavailable": "External sources unavailable",
+}
+
+
+def _health_md(data: ReportInput) -> str:
+    """Deterministic Research Health disclosure (#5, spec §15, §23.10). Shown ONLY when
+    the run was not fully live — cached/local evidence is never silently presented as
+    live. Never fabricated: every number comes from the counted source health."""
+    h = data.source_health
+    if not h:
+        return ""
+    mode = h.get("research_mode", "live")
+    unavailable = h.get("unavailable", 0)
+    if mode == "live" and not unavailable:
+        return ""  # nothing to disclose — the run was fully live
+    label = _HEALTH_LABELS.get(h.get("research_health", ""), "Degraded")
+    parts: list[str] = []
+    if h.get("live"):
+        parts.append(f"{h['live']} live")
+    if h.get("cached"):
+        parts.append(f"{h['cached']} cached")
+    if h.get("local"):
+        parts.append(f"{h['local']} local")
+    if h.get("stale"):
+        parts.append(f"{h['stale']} stale")
+    if unavailable:
+        parts.append(f"{unavailable} unavailable")
+    breakdown = ", ".join(parts) if parts else "no external sources"
+
+    md = f"> **Research Health — {label}.** "
+    if mode == "local":
+        md += (
+            "This research was performed using local/cached sources; live web "
+            "verification was unavailable. "
+        )
+    elif h.get("cached"):
+        md += "Some evidence was reused from cache because live sources were unavailable. "
+    if unavailable:
+        md += "Some external sources could not be reached, so coverage is incomplete. "
+    md += f"Source evidence: {breakdown}.\n\n"
+    return md
 
 
 def _rd_md(data: ReportInput) -> str:

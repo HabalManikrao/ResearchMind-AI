@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
-import type { ResearchMode } from "../api/types";
+import type { ResearchMode, SourcePolicy } from "../api/types";
 import { Card } from "../components/ui";
 import SystemStatus from "../components/SystemStatus";
 
@@ -30,6 +30,7 @@ export default function NewResearch() {
   const [query, setQuery] = useState("");
   const [mode, setMode] = useState<ResearchMode>("deep");
   const [sources, setSources] = useState<string[]>(["web", "docs", "github", "papers"]);
+  const [policy, setPolicy] = useState<SourcePolicy>("live_preferred");
   const [constraints, setConstraints] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +59,7 @@ export default function NewResearch() {
         query: query.trim(),
         mode,
         sources_enabled: sources,
+        source_policy: policy,
         constraints: constraints.trim() ? { notes: constraints.trim() } : {},
         auto_start: true,
       });
@@ -145,6 +147,26 @@ export default function NewResearch() {
               </button>
             ))}
           </div>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium text-slate-700">
+            Source Policy
+          </label>
+          <select
+            value={policy}
+            onChange={(e) => setPolicy(e.target.value as SourcePolicy)}
+            className="w-full rounded-lg border border-slate-300 p-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+          >
+            <option value="live_preferred">Live preferred — fall back to cache/local if offline</option>
+            <option value="live_only">Live only — strict; never use cache (fail if unreachable)</option>
+            <option value="cache_allowed">Cache allowed — reuse cached results freely</option>
+            <option value="local_only">Local only — documents/memory only, no internet</option>
+          </select>
+          <p className="mt-1 text-xs text-slate-500">
+            Controls how ResearchMind sources evidence when live providers are slow or
+            unavailable. Cached and local evidence is always clearly labelled — never shown as live.
+          </p>
         </div>
 
         <div>

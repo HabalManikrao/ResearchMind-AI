@@ -9,6 +9,7 @@ from app.models.enums import (
     ResearchMode,
     TaskStatus,
 )
+from app.models.cache import CachedSource
 from app.models.document import Document, DocumentChunk
 from app.models.research import (
     AuditLog,
@@ -38,6 +39,7 @@ __all__ = [
     "ResearchMode",
     "TaskStatus",
     "AuditLog",
+    "CachedSource",
     "Claim",
     "ClaimSource",
     "Conflict",

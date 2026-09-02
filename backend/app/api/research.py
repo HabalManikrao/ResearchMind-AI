@@ -118,6 +118,7 @@ async def create_research(
         mode=body.mode,
         constraints=body.constraints,
         sources_enabled=body.sources_enabled or ["web"],
+        source_policy=body.source_policy,  # None => backend default at run time (#5)
         status=ProjectStatus.CREATED,
         run_number=1,
         run_intent="original",
@@ -515,6 +516,8 @@ async def get_claim_evidence(
             published_date=s.published_date,
             reliability_score=s.reliability_score,
             freshness=s.freshness,
+            provenance=s.provenance,
+            availability=s.availability,
             stance=cs.stance.value,
             passage=cs.passage,
             page_number=(s.meta or {}).get("page_number"),

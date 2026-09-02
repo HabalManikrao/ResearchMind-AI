@@ -113,6 +113,53 @@ Completed runs are **immutable snapshots** — nothing rewrites them and `/start
   `test_research_again.py`, `test_migration_lineage.py` + frontend `RunDiff/History/LineageBar.test.tsx`.
   Docs: `docs/RESEARCH-MEMORY-{IMPLEMENTATION-PLAN,COMPLETION}.md`.
 
+### Connectivity Intelligence + Live/Cached/Local Research (#5): source-aware resilience
+ResearchMind knows the availability of every source and gracefully switches between live, cached, and
+local evidence — **without ever labelling cached/local evidence as live**. The design is reuse-first:
+provenance rides on existing structures, and only the web cache is genuinely new.
+- **Provenance vs availability** (`services/provenance.py`): *provenance* (`live_web`/`cached_web`/
+  `local_document`/`local_memory`/`local_database`) is stamped onto `Source.meta["provenance"]` at
+  collection time and **never inferred**; *availability* (`live`/`cached`/`local`/`stale`/`unavailable`/
+  `unknown`) is derived from provenance + freshness (stale overlays any origin). Exposed as computed
+  `Source.provenance`/`Source.availability` properties (like the existing `Source.freshness`) — **zero
+  migration**. A source is `live_web` **only** when `dispatch.collect` actually returned it live this
+  run (spec §8). `UNAVAILABLE` is a run-level count of failed external tasks, never a phantom row.
+- **Connectivity manager** (`services/connectivity.py`): a layered, bounded, **on-demand-cached**
+  health model (not a poller, not one ICMP ping). Probes internet (HEAD to the hosts we actually call),
+  the search provider, and local infra (Ollama/Qdrant/DB), each with a short timeout; snapshot cached
+  `connectivity_cache_seconds`. States: `online`/`degraded`/`local_only`/`offline`/`recovering`/
+  `unknown`; a previous-state memory yields `recovering` with no background traffic. Probes are
+  module-level async fns so tests monkeypatch them. Singleton `manager`. `GET /system/connectivity`.
+- **Source cache** (`models/cache.py` `CachedSource` + `services/source_cache.py`): the only new store.
+  Last successful external result set per `(project_id, source_type, query_hash)`, **TTL by type**
+  (`cache_ttl_*_minutes`), **project-isolated** (every read filters `project_id` — spec §30), content
+  only (never keys/headers/cookies). New table via `create_all`.
+- **Resilient collection** (`services/collection.py` `resilient_collect`): a source-agnostic wrapper
+  over `dispatch.collect` the orchestrator's worker calls. Local agents (`documents`) always run
+  (`local_document`, never cached); external agents honour the run's **`SourcePolicy`** (`live_only`/
+  `live_preferred`/`cache_allowed`/`local_only`, nullable `research_projects.source_policy` col →
+  default `live_preferred`): live success stamps `live_web` + caches (unless `live_only`); live failure
+  serves the cached set (`cached_web`) if within TTL, else re-raises → the existing per-task try/except
+  marks the task FAILED (= UNAVAILABLE). Partial failure never kills the run (spec §14).
+- **Recovery** (`orchestrator._retry_failed_external`, spec §26): after the research loop, failed
+  external tasks are retried **once** (bounded by `attempts`/`connectivity_max_retries`) **iff** a fresh
+  `snapshot(force=True)` shows the provider healthy — reusing the previously-unwired `RETRYING` infra. A
+  no-op when nothing failed (existing pipeline tests unaffected). Cross-run refresh is Research Again (#4).
+- **Run health & disclosure** (`orchestrator._build_source_health`): live/cached/local (by provenance)
+  + stale (by freshness, cross-cutting) + unavailable (failed external tasks) counts + a
+  `research_health` label + connectivity snapshot, stored in the existing `report_meta["source_health"]`
+  (no new column) and emitted over SSE. The report **deterministically discloses** cache/local/
+  unavailable sourcing (`report._health_md`) **only when true** (spec §15). The diff detects
+  `availability live → cached` etc. (`research_diff._diff_sources`). **Confidence is untouched** — no
+  offline penalty; provenance is disclosed, not scored (spec §16, §19).
+- **Frontend:** `lib/provenance.ts` (mapping), `ProvenancePill` on the Sources tab + claim evidence, a
+  **Research Health** banner in the live view (quiet when fully-live), a connectivity pill in
+  `SystemStatus`, and a source-policy picker in `NewResearch`. Config: `connectivity_*` / `source_cache_*`
+  / `cache_ttl_*` / `default_source_policy`. Tests: `test_provenance.py`, `test_connectivity.py`,
+  `test_source_cache.py`, `test_pipeline_connectivity.py`, `test_connectivity_security.py` + frontend
+  `provenance.test.ts`, `ResearchHealthBanner.test.tsx`. Docs:
+  `docs/CONNECTIVITY-INTELLIGENCE-{IMPLEMENTATION-PLAN,COMPLETION}.md`.
+
 ### Report is assembled deterministically from structured data
 The report LLM writes ONLY interpretive prose (Executive Summary / Key Findings / Detailed Analysis /
 Knowledge Gaps). Everything decision-bearing is injected from stored rows so it stays evidence-
@@ -206,13 +253,15 @@ mark-read/read-all/delete). **Frontend:** `pages/Scheduled.tsx`, `pages/Notifica
 Not yet built (remaining Phase 7): the **Postgres/Redis** swap (SQLite → Postgres, in-process SSE bus →
 Redis pub/sub, in-process scheduler → Redis/Celery beat — all already behind seams). `net.validate_url`
 exists as the SSRF control for any new outbound-fetch path — route new fetches through it. A pytest suite
-(`backend/tests/`, 175 tests) covers units, API, middleware, auth + access control, schedules,
+(`backend/tests/`, 213 tests) covers units, API, middleware, auth + access control, schedules,
 notifications, the evidence engine (freshness, scoring, contradiction agent, evidence API),
 Document RAG (parsing, chunking, upload security, service, documents API, offline+hybrid pipeline),
-research memory/again/diff (diff engine, lineage, immutability, carry-forward, migration), and the
-full faked pipeline — run it before and after changes (see Commands). The **frontend** now
-also has a Vitest suite (`frontend/`, `npm test`, 20 tests: evidence mapping, `ClaimsTab` +
-`DocumentsPanel` DOM behavior, RunDiff + History lineage + LineageBar).
+research memory/again/diff (diff engine, lineage, immutability, carry-forward, migration),
+connectivity intelligence (provenance, connectivity states, source cache + isolation, resilient
+collect, live/offline/hybrid/fallback/recovery pipeline), and the full faked pipeline — run it before
+and after changes (see Commands). The **frontend** now also has a Vitest suite (`frontend/`,
+`npm test`, 31 tests: evidence + provenance mapping, `ClaimsTab` + `DocumentsPanel` DOM behavior,
+RunDiff + History lineage + LineageBar, Research Health banner).
 
 ## Intended Architecture
 
@@ -298,7 +347,7 @@ cp .env.example .env                                       # set TAVILY_API_KEY,
 - API docs `http://localhost:8000/docs`; health `http://localhost:8000/health` (checks Ollama + Tavily).
 - Tables auto-create on startup (`init_db()` in `app/database.py`) — no migrations yet; columns
   added to existing tables are applied by the idempotent `_ensure_columns` ALTER (see `_ADDED_COLUMNS`).
-- **Tests:** `pip install -r requirements-dev.txt` then `.venv/Scripts/python -m pytest` (175 tests,
+- **Tests:** `pip install -r requirements-dev.txt` then `.venv/Scripts/python -m pytest` (213 tests,
   ~127s, all offline). Config in `pytest.ini` (`asyncio_mode=auto`). `tests/conftest.py` binds an
   isolated temp SQLite DB + Qdrant path via env before app import (incl. `AUTH_ENABLED=true` +
   `JWT_SECRET`), and provides fixtures: `client` (ASGI, **auto-registers a user and attaches its bearer

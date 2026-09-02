@@ -89,6 +89,9 @@ class ResearchProject(Base, TimestampMixin):
     constraints: Mapped[dict] = mapped_column(JSON, default=dict)
     # Selected source types, e.g. ["web", "github", ...]. MVP uses "web".
     sources_enabled: Mapped[list] = mapped_column(JSON, default=list)
+    # Live/cached/local sourcing policy (#5). Nullable so pre-#5 runs default to
+    # live_preferred at read time; see SourcePolicy. Resolved via _resolved_policy.
+    source_policy: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     objective: Mapped[str | None] = mapped_column(Text, nullable=True)
     progress: Mapped[int] = mapped_column(Integer, default=0)  # 0-100
@@ -189,6 +192,22 @@ class Source(Base, TimestampMixin):
         """Freshness state (fresh/aging/stale/unknown) for this source's type,
         judged against today. Computed, not stored, so it stays current."""
         return freshness_state(self.published_date, self.source_type)
+
+    @property
+    def provenance(self) -> str:
+        """Where this evidence came from — live_web/cached_web/local_document/…
+        Read from the stamp placed at collection time (#5); never inferred."""
+        from app.services.provenance import provenance_of
+
+        return provenance_of(self.source_type, self.meta)
+
+    @property
+    def availability(self) -> str:
+        """Display state (live/cached/local/stale/unknown) derived from provenance +
+        freshness. Computed so it always reflects current freshness (#5)."""
+        from app.services.provenance import availability_of
+
+        return availability_of(self.provenance, self.freshness)
 
 
 class Finding(Base, TimestampMixin):

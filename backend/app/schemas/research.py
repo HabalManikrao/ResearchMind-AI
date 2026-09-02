@@ -24,6 +24,10 @@ class ResearchCreate(BaseModel):
     sources_enabled: list[str] = Field(default_factory=lambda: list(DEFAULT_SOURCES))
     constraints: dict = Field(default_factory=dict)
     auto_start: bool = True
+    # Live/cached/local sourcing policy (#5). None => backend default (live_preferred).
+    source_policy: str | None = Field(
+        default=None, pattern="^(live_only|live_preferred|cache_allowed|local_only)$"
+    )
 
 
 class QuestionCreate(BaseModel):
@@ -57,6 +61,7 @@ class ProjectDetail(ProjectSummary):
     objective: str | None
     constraints: dict
     sources_enabled: list
+    source_policy: str | None = None  # #5 live/cached/local sourcing policy
     error: str | None
     report_meta: dict | None
 
@@ -121,6 +126,8 @@ class SourceOut(ORMModel):
     reliability_score: float
     relevance_score: float
     freshness: str  # fresh | aging | stale | unknown (computed from published_date)
+    provenance: str  # live_web | cached_web | local_document | ... (#5, computed)
+    availability: str  # live | cached | local | stale | unknown (#5, computed)
     meta: dict
 
 
@@ -153,6 +160,8 @@ class ClaimEvidenceItem(BaseModel):
     published_date: str | None = None
     reliability_score: float
     freshness: str
+    provenance: str = "live_web"  # #5 where the evidence came from
+    availability: str = "live"  # #5 live | cached | local | stale | unknown
     stance: str  # supports | contradicts | neutral
     passage: str | None = None
     page_number: int | None = None  # for document sources: page the passage came from

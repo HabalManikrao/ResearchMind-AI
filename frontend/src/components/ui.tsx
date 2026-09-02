@@ -1,5 +1,6 @@
 import type { ClaimStatus, ProjectStatus, TaskStatus } from "../api/types";
 import { evidenceStateMeta, freshnessMeta } from "../lib/evidence";
+import { availabilityMeta } from "../lib/provenance";
 
 const STATUS_STYLES: Record<string, string> = {
   created: "bg-slate-100 text-slate-600",
@@ -96,6 +97,19 @@ export function FreshnessPill({ freshness }: { freshness: string }) {
   return (
     <span
       title={m.label}
+      className={`rounded px-1.5 py-0.5 text-xs font-medium ${m.className}`}
+    >
+      {m.dot} {m.label}
+    </span>
+  );
+}
+
+/** Source provenance/availability pill: 🟢 Live / 🔵 Cached / 📄 Local / 🟡 Stale (#5). */
+export function ProvenancePill({ availability }: { availability: string }) {
+  const m = availabilityMeta(availability);
+  return (
+    <span
+      title={`Evidence availability: ${m.label}`}
       className={`rounded px-1.5 py-0.5 text-xs font-medium ${m.className}`}
     >
       {m.dot} {m.label}

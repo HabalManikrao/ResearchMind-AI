@@ -391,6 +391,10 @@ async def _diff_sources(old_id: str, new_id: str) -> dict:
                 )
             if o.freshness != s.freshness:
                 changes.append(f"freshness {o.freshness} → {s.freshness}")
+            # Provenance/availability change (#5, spec §21): live↔cached, stale↔fresh,
+            # etc. Built from the actual availability fields — never invented.
+            if o.availability != s.availability:
+                changes.append(f"availability {o.availability} → {s.availability}")
             if (o.published_date or None) != (s.published_date or None):
                 changes.append("publish date changed")
             if changes:

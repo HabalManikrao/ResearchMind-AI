@@ -44,9 +44,11 @@ from app.models import (
     Source,
     TaskStatus,
 )
-from app.services import dedup, notifications
+from app.services import connectivity, dedup, notifications, provenance
+from app.services.collection import resilient_collect
 from app.knowledge import service as knowledge
 from app.knowledge.service import KnowledgeUnavailable
+from app.models.enums import SourcePolicy
 from app.orchestration.control import Cancelled, RunControl
 from app.search import get_search_client
 from app.services.events import ProgressEvent, bus
@@ -100,6 +102,28 @@ async def run_research(project_id: str, control: RunControl) -> None:
             mode = proj.mode
             parent_id = proj.parent_id
             run_intent = proj.run_intent or "original"
+            owner_id = proj.user_id
+            policy = proj.source_policy or settings.default_source_policy
+
+        # --- Connectivity Intelligence (#5): understand availability up front ---
+        # A single cached snapshot steers policy fallback and the run-health summary;
+        # it never blocks the run — resilient_collect handles per-source fallback.
+        run_stats = {"fallback": 0, "retries": 0, "provider_failures": 0}
+        snapshot = None
+        if settings.connectivity_enabled:
+            try:
+                snapshot = await connectivity.manager.snapshot()
+            except Exception:  # noqa: BLE001 - probing must never sink a run
+                snapshot = None
+        if snapshot is not None:
+            eff_mode = connectivity.research_mode_for(snapshot, policy)
+            await _emit(
+                project_id, "activity",
+                f"Connectivity: {snapshot.overall} → {eff_mode} research "
+                f"(policy: {policy})",
+                agent="connectivity", overall=snapshot.overall, mode=eff_mode,
+                policy=policy, layers=snapshot.layers,
+            )
 
         # Market Intelligence mode: bias search toward recent sources and report a
         # dated snapshot of the current state.
@@ -172,6 +196,7 @@ async def run_research(project_id: str, control: RunControl) -> None:
             await _run_tasks(
                 project_id, pending, provider, tavily, control,
                 base_progress=base, recency_days=recency_days,
+                policy=policy, user_id=owner_id, run_stats=run_stats,
             )
 
             # Verify accumulated evidence.
@@ -193,6 +218,21 @@ async def run_research(project_id: str, control: RunControl) -> None:
                     )
                 else:
                     break  # no gaps -> stop looping early
+
+        # --- Connectivity recovery (#5, spec §26): if external tasks failed and the
+        # provider is healthy again, retry the failed ones once. Historical evidence
+        # is untouched; a no-op when nothing failed. ---------------------------
+        await control.checkpoint()
+        n_recovered = await _retry_failed_external(
+            project_id, provider, tavily, control, policy, owner_id, run_stats, recency_days,
+        )
+        if n_recovered:
+            await _emit(
+                project_id, "activity",
+                f"Connectivity recovered — retried {n_recovered} previously failed source task(s)",
+                agent="connectivity", recovered=n_recovered,
+            )
+            # Recovered sources are folded into claims by the dedupe→re-verify below.
 
         # --- Deduplicate collected information --------------------------------
         await control.checkpoint()
@@ -259,11 +299,25 @@ async def run_research(project_id: str, control: RunControl) -> None:
             )
         await _set_progress(project_id, 92, "R&D analysis complete")
 
+        # --- Source health summary (#5, spec §22, §23, §40): live/cached/local/
+        # stale/unavailable counts + a run-level health label, computed from the
+        # actual persisted sources and failed tasks. Fed to the report for honest
+        # disclosure (§15) and surfaced in report_meta + UI. ------------------
+        source_health = await _build_source_health(project_id, snapshot, run_stats)
+        await _emit(
+            project_id, "activity",
+            "Source health — "
+            f"live: {source_health['live']}, cached: {source_health['cached']}, "
+            f"local: {source_health['local']}, unavailable: {source_health['unavailable']}, "
+            f"stale: {source_health['stale']}",
+            agent="connectivity", **source_health,
+        )
+
         # --- Report -----------------------------------------------------------
         await control.checkpoint()
         await _emit(project_id, "stage", "Generating final research report")
         await _set_progress(project_id, 95, "Generating report")
-        await _build_report(project_id, provider)
+        await _build_report(project_id, provider, source_health)
 
         # --- Build the compact research-memory record from the finalized rows --
         memory_summary = await _build_memory_summary(project_id, as_of)
@@ -382,7 +436,8 @@ async def _pending_tasks(project_id: str) -> list[dict]:
 
 
 async def _run_tasks(
-    project_id, tasks, provider, tavily, control, *, base_progress, recency_days=None
+    project_id, tasks, provider, tavily, control, *, base_progress, recency_days=None,
+    policy=SourcePolicy.LIVE_PREFERRED.value, user_id=None, run_stats=None,
 ) -> None:
     sem = asyncio.Semaphore(4)
     total = len(tasks)
@@ -397,24 +452,38 @@ async def _run_tasks(
             await _mark_task(task["id"], TaskStatus.RUNNING, inc_attempt=True)
             question_text = await _question_text(task)
             try:
-                sources = await dispatch.collect(
+                # Resilient collection (#5): live → cache → (local agents are offline).
+                # Provenance is stamped inside; the outcome drives run-health accounting.
+                result = await resilient_collect(
                     agent, provider, tavily, settings,
                     question=question_text,
                     search_query=task["search_query"] or question_text,
                     recency_days=recency_days,
                     project_id=project_id,
+                    user_id=user_id,
+                    policy=policy,
                 )
+                sources = result.sources
                 await _persist_sources(project_id, task, sources)
                 await _mark_task(task["id"], TaskStatus.COMPLETED)
+                if run_stats is not None and result.outcome == "cached":
+                    run_stats["fallback"] = run_stats.get("fallback", 0) + 1
+                suffix = {
+                    "cached": " (served from cache — live source unavailable)",
+                    "skipped": " (external source skipped — local-only policy)",
+                }.get(result.outcome, "")
                 await _emit(
                     project_id, "activity",
-                    f"{label} analyzed {len(sources)} source(s) for: {question_text[:80]}",
-                    agent=agent, sources=len(sources),
+                    f"{label} analyzed {len(sources)} source(s) for: "
+                    f"{question_text[:80]}{suffix}",
+                    agent=agent, sources=len(sources), outcome=result.outcome,
                 )
                 if task["question_id"] and sources:
                     await _mark_question_answered(task["question_id"])
             except Exception as exc:  # noqa: BLE001
                 await _mark_task(task["id"], TaskStatus.FAILED, error=str(exc))
+                if run_stats is not None and provenance.is_external(agent):
+                    run_stats["provider_failures"] = run_stats.get("provider_failures", 0) + 1
                 await _emit(
                     project_id, "activity",
                     f"{label} task failed: {exc}", agent=agent, failed=True,
@@ -887,6 +956,136 @@ async def _build_memory_summary(project_id: str, as_of: str) -> dict:
     }
 
 
+async def _retry_failed_external(
+    project_id, provider, tavily, control, policy, user_id, run_stats, recency_days,
+) -> int:
+    """Connectivity recovery (#5, spec §26): re-run external tasks that FAILED, but
+    only when a fresh probe shows the provider is healthy again. Bounded by
+    ``connectivity_max_retries`` (via task ``attempts``); a no-op otherwise so existing
+    runs are unaffected. Never restarts the whole run; historical evidence is intact."""
+    if not settings.connectivity_enabled or settings.connectivity_max_retries <= 0:
+        return 0
+    if policy == SourcePolicy.LOCAL_ONLY.value:
+        return 0
+
+    async with SessionLocal() as db:
+        failed = (
+            await db.execute(
+                select(ResearchTask).where(
+                    ResearchTask.project_id == project_id,
+                    ResearchTask.status == TaskStatus.FAILED,
+                )
+            )
+        ).scalars().all()
+        eligible = [
+            t for t in failed
+            if provenance.is_external(t.agent)
+            and t.attempts <= settings.connectivity_max_retries
+        ]
+    if not eligible:
+        return 0
+
+    # Only retry if connectivity genuinely recovered.
+    snap = await connectivity.manager.snapshot(force=True)
+    if not (snap.internet and snap.search_provider):
+        return 0
+
+    pending: list[dict] = []
+    async with _db_lock, SessionLocal() as db:
+        for t in eligible:
+            row = await db.get(ResearchTask, t.id)
+            if row:
+                row.status = TaskStatus.RETRYING
+                pending.append({
+                    "id": row.id, "question_id": row.question_id,
+                    "search_query": row.search_query, "description": row.description,
+                    "agent": row.agent,
+                })
+        await db.commit()
+
+    if run_stats is not None:
+        run_stats["retries"] = run_stats.get("retries", 0) + len(pending)
+    await _run_tasks(
+        project_id, pending, provider, tavily, control,
+        base_progress=80, recency_days=recency_days,
+        policy=policy, user_id=user_id, run_stats=run_stats,
+    )
+    # Count how many actually recovered (now COMPLETED).
+    async with SessionLocal() as db:
+        recovered = (
+            await db.execute(
+                select(ResearchTask).where(
+                    ResearchTask.id.in_([p["id"] for p in pending]),
+                    ResearchTask.status == TaskStatus.COMPLETED,
+                )
+            )
+        ).scalars().all()
+    return len(recovered)
+
+
+async def _build_source_health(project_id, snapshot, run_stats) -> dict:
+    """Compute the run's source-health summary from the actual persisted sources and
+    failed external tasks (#5, spec §22, §23, §40). Only real, counted numbers — no
+    invented coverage percentages (§23)."""
+    async with SessionLocal() as db:
+        sources = (
+            await db.execute(select(Source).where(Source.project_id == project_id))
+        ).scalars().all()
+        tasks = (
+            await db.execute(select(ResearchTask).where(ResearchTask.project_id == project_id))
+        ).scalars().all()
+
+    # Count live/cached/local by *provenance* (where the evidence came from) so the
+    # buckets stay distinct; count stale as a cross-cutting overlay by *freshness*
+    # (a source can be "live but stale") — spec §23 lists Stale as its own line.
+    live = cached = local = stale = unknown = 0
+    for s in sources:
+        prov_ = s.provenance
+        if prov_ == provenance.LIVE_WEB:
+            live += 1
+        elif prov_ == provenance.CACHED_WEB:
+            cached += 1
+        elif prov_ in (provenance.LOCAL_DOCUMENT, provenance.LOCAL_MEMORY, provenance.LOCAL_DATABASE):
+            local += 1
+        else:
+            unknown += 1
+        if s.freshness == "stale":
+            stale += 1
+    unavailable = sum(
+        1 for t in tasks
+        if t.status == TaskStatus.FAILED and provenance.is_external(t.agent)
+    )
+
+    if local and not live and not cached:
+        mode = "local"
+    elif cached and not live:
+        mode = "cache"
+    elif live and (cached or local):
+        mode = "hybrid"
+    elif live:
+        mode = "live"
+    else:
+        mode = "unknown"
+
+    stats = run_stats or {}
+    return {
+        "live": live,
+        "cached": cached,
+        "local": local,
+        "stale": stale,
+        "unknown": unknown,
+        "unavailable": unavailable,
+        "provider_failures": stats.get("provider_failures", 0),
+        "fallback_count": stats.get("fallback", 0),
+        "retry_count": stats.get("retries", 0),
+        "connectivity_state": snapshot.overall if snapshot else "unknown",
+        "research_mode": mode,
+        "research_health": provenance.research_health(
+            live=live, cached=cached, local=local, unavailable=unavailable
+        ),
+    }
+
+
 async def _rd_analysis(project_id, provider) -> str:
     """Run comparison + recommendation + delivery plan; persist Solutions and the
     Recommendation. Returns the recommended option name (or "")."""
@@ -1023,7 +1222,7 @@ async def _gap_followup(project_id, provider, round_: int) -> int:
     return added
 
 
-async def _build_report(project_id, provider) -> None:
+async def _build_report(project_id, provider, source_health: dict | None = None) -> None:
     async with SessionLocal() as db:
         proj = await db.get(ResearchProject, project_id)
         questions = (
@@ -1109,8 +1308,11 @@ async def _build_report(project_id, provider) -> None:
         ],
         mode=proj.mode.value,
         as_of=datetime.now(timezone.utc).date().isoformat(),
+        source_health=source_health,
     )
     report_md, meta = await report.generate_report(provider, data)
+    if source_health:
+        meta["source_health"] = source_health  # surfaced in report_meta (#5)
 
     async with _db_lock, SessionLocal() as db:
         proj = await db.get(ResearchProject, project_id)

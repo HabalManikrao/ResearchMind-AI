@@ -48,6 +48,7 @@ async def test_lineage_migration_additive_idempotent_nondestructive():
             assert {
                 "parent_id", "root_id", "run_number", "run_intent",
                 "completed_at", "memory_summary",
+                "source_policy",  # Connectivity Intelligence (#5) — additive nullable.
             } <= cols
 
             ccols = {
