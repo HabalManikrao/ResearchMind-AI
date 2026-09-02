@@ -45,6 +45,15 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
         # Connectivity Intelligence (#5): live/cached/local sourcing policy.
         "source_policy": "TEXT",
     },
+    # Research monitoring (#6): notifications gain impact + a diff link. All nullable so
+    # existing notifications remain valid; research_monitors/monitor_checks are new
+    # tables created by create_all (no ALTER needed).
+    "notifications": {
+        "severity": "TEXT",
+        "monitor_id": "TEXT",
+        "dedup_key": "TEXT",
+        "data": "TEXT",
+    },
 }
 
 

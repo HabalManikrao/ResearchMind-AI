@@ -63,6 +63,10 @@ class NotificationOut(BaseModel):
     project_id: str | None
     read: bool
     created_at: datetime
+    # Monitoring extensions (#6): impact + a pointer to the relevant diff.
+    severity: str | None = None
+    monitor_id: str | None = None
+    data: dict | None = None
 
 
 class UnreadCountOut(BaseModel):

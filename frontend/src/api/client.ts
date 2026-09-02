@@ -190,6 +190,28 @@ export const api = {
   runScheduleNow: (id: string) =>
     req<{ message: string }>(`/schedules/${id}/run-now`, { method: "POST" }),
 
+  // --- Research monitoring (#6) --- //
+  getMonitor: (projectId: string) =>
+    req<import("./types").MonitorDetail>(`/research/${projectId}/monitor`),
+  createMonitor: (projectId: string, body: import("./types").MonitorCreate) =>
+    req<import("./types").Monitor>(`/research/${projectId}/monitor`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  updateMonitor: (projectId: string, patch: Partial<import("./types").MonitorCreate> & { enabled?: boolean }) =>
+    req<import("./types").Monitor>(`/research/${projectId}/monitor`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+  deleteMonitor: (projectId: string) =>
+    req<{ message: string }>(`/research/${projectId}/monitor`, { method: "DELETE" }),
+  runMonitorNow: (projectId: string) =>
+    req<{ message: string; ok: boolean }>(`/research/${projectId}/monitor/run`, {
+      method: "POST",
+    }),
+  monitorChecks: (projectId: string) =>
+    req<import("./types").MonitorCheck[]>(`/research/${projectId}/monitor/checks`),
+
   // --- Notifications --- //
   listNotifications: (unreadOnly = false) =>
     req<Notification[]>(`/notifications${unreadOnly ? "?unread_only=true" : ""}`),

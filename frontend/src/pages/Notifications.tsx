@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CheckCheck, Trash2, CheckCircle2, XCircle, Clock, Bell } from "lucide-react";
+import { CheckCheck, Trash2, CheckCircle2, XCircle, Clock, Bell, Radar } from "lucide-react";
 import { api } from "../api/client";
 import type { Notification } from "../api/types";
 import { Card } from "../components/ui";
+import { severityMeta } from "../lib/monitoring";
 
 const ICONS: Record<string, typeof Bell> = {
   research_completed: CheckCircle2,
   research_failed: XCircle,
   schedule_run: Clock,
+  monitor_alert: Radar,
   info: Bell,
 };
 
@@ -16,8 +18,23 @@ const ICON_COLOR: Record<string, string> = {
   research_completed: "text-emerald-500",
   research_failed: "text-red-500",
   schedule_run: "text-brand-500",
+  monitor_alert: "text-brand-600",
   info: "text-slate-400",
 };
+
+// A monitor alert links to the diff between the new verified run and its baseline.
+function targetLink(n: Notification): { to: string; label: string } | null {
+  if (n.type === "monitor_alert" && n.data?.new_run_id && n.data?.baseline_run_id) {
+    return {
+      to: `/research/${n.data.new_run_id}/diff/${n.data.baseline_run_id}`,
+      label: "View what changed",
+    };
+  }
+  if (n.project_id) {
+    return { to: `/research/${n.project_id}`, label: "View research" };
+  }
+  return null;
+}
 
 export default function Notifications() {
   const [items, setItems] = useState<Notification[]>([]);
@@ -84,20 +101,29 @@ export default function Notifications() {
                 <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${ICON_COLOR[n.type] ?? "text-slate-400"}`} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
+                    {n.severity && (
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${severityMeta(n.severity).className}`}
+                      >
+                        {severityMeta(n.severity).icon} {severityMeta(n.severity).label}
+                      </span>
+                    )}
                     <span className="font-medium text-slate-900">{n.title}</span>
                     {!n.read && <span className="h-2 w-2 rounded-full bg-brand-500" />}
                   </div>
-                  {n.message && <p className="text-sm text-slate-600">{n.message}</p>}
+                  {n.message && (
+                    <p className="whitespace-pre-line text-sm text-slate-600">{n.message}</p>
+                  )}
                   <div className="mt-1 flex items-center gap-3 text-xs text-slate-400">
                     <span>{new Date(n.created_at).toLocaleString()}</span>
-                    {n.project_id && (
-                      <Link
-                        to={`/research/${n.project_id}`}
-                        className="text-brand-600 hover:underline"
-                      >
-                        View research
-                      </Link>
-                    )}
+                    {(() => {
+                      const t = targetLink(n);
+                      return t ? (
+                        <Link to={t.to} className="text-brand-600 hover:underline">
+                          {t.label}
+                        </Link>
+                      ) : null;
+                    })()}
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">

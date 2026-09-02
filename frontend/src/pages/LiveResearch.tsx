@@ -12,6 +12,7 @@ import {
   ChevronRight,
   RefreshCw,
   GitCompare,
+  Radar,
 } from "lucide-react";
 import { api } from "../api/client";
 import type {
@@ -39,8 +40,22 @@ import {
 } from "../components/ui";
 import KnowledgeGraphView from "../components/KnowledgeGraphView";
 import DocumentsPanel from "../components/DocumentsPanel";
-import type { KnowledgeGraph, SourceHealth } from "../api/types";
+import type {
+  KnowledgeGraph,
+  SourceHealth,
+  MonitorDetail,
+  MonitorCheck,
+  MonitorFrequency,
+  NotifyPolicy,
+} from "../api/types";
 import { researchHealthMeta } from "../lib/provenance";
+import {
+  severityMeta,
+  healthMeta,
+  checkStatusLabel,
+  FREQUENCY_LABEL,
+  NOTIFY_POLICY_LABEL,
+} from "../lib/monitoring";
 
 type Tab =
   | "activity"
@@ -51,7 +66,8 @@ type Tab =
   | "conflicts"
   | "recommendation"
   | "graph"
-  | "report";
+  | "report"
+  | "monitoring";
 
 const ACTIVE = ["running", "planning", "paused"];
 
@@ -153,6 +169,7 @@ export default function LiveResearch() {
     { key: "recommendation", label: "Recommendation" },
     { key: "graph", label: "Graph" },
     { key: "report", label: "Report" },
+    { key: "monitoring", label: "Monitoring" },
   ];
 
   return (
@@ -238,6 +255,9 @@ export default function LiveResearch() {
       )}
       {tab === "graph" && <GraphTab graph={graph} />}
       {tab === "report" && <ReportTab report={report} isActive={isActive} />}
+      {tab === "monitoring" && (
+        <MonitoringTab projectId={id!} completed={project.status === "completed"} />
+      )}
     </div>
   );
 }
@@ -1040,5 +1060,297 @@ function MetaStat({ label, value }: { label: string; value: string | number }) {
       <div className="text-lg font-bold text-slate-900">{value}</div>
       <div className="text-xs text-slate-500">{label}</div>
     </div>
+  );
+}
+
+// --- Research monitoring (#6) --------------------------------------------- //
+export function SeverityPill({ severity }: { severity: string | null | undefined }) {
+  const m = severityMeta(severity as never);
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${m.className}`}
+    >
+      {m.icon} {m.label}
+    </span>
+  );
+}
+
+export function MonitoringTab({
+  projectId,
+  completed,
+}: {
+  projectId: string;
+  completed: boolean;
+}) {
+  const [detail, setDetail] = useState<MonitorDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [notFound, setNotFound] = useState(false);
+  const [frequency, setFrequency] = useState<MonitorFrequency>("daily");
+  const [notifyPolicy, setNotifyPolicy] = useState<NotifyPolicy>("all");
+
+  const load = useCallback(() => {
+    setLoading(true);
+    api
+      .getMonitor(projectId)
+      .then((d) => {
+        setDetail(d);
+        setNotFound(false);
+      })
+      .catch(() => setNotFound(true))
+      .finally(() => setLoading(false));
+  }, [projectId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const createMonitor = async () => {
+    setBusy(true);
+    try {
+      await api.createMonitor(projectId, {
+        frequency,
+        notify_policy: notifyPolicy,
+        start: "scheduled",
+      });
+      load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggle = async (enabled: boolean) => {
+    setBusy(true);
+    try {
+      await api.updateMonitor(projectId, { enabled });
+      load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runNow = async () => {
+    setBusy(true);
+    try {
+      await api.runMonitorNow(projectId);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async () => {
+    setBusy(true);
+    try {
+      await api.deleteMonitor(projectId);
+      setDetail(null);
+      setNotFound(true);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!completed) {
+    return (
+      <Card>
+        <p className="text-sm text-slate-500">
+          Monitoring watches a <em>completed</em> research run for meaningful changes.
+          Finish this run first, then set up monitoring.
+        </p>
+      </Card>
+    );
+  }
+  if (loading) return <Card><p className="text-sm text-slate-500">Loading…</p></Card>;
+
+  // --- No monitor yet → setup. --- //
+  if (notFound || !detail) {
+    return (
+      <Card>
+        <div className="flex items-start gap-3">
+          <Radar className="mt-0.5 h-5 w-5 text-brand-500" />
+          <div className="flex-1">
+            <h3 className="font-semibold text-slate-900">Monitor this research</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              ResearchMind will re-check this topic on a schedule and alert you only when
+              something <strong>meaningful</strong> changes — a claim gets contradicted,
+              confidence shifts, the recommendation changes, or an authoritative new source
+              appears. It won't ping you about search noise.
+            </p>
+            <div className="mt-4 flex flex-wrap items-end gap-4">
+              <label className="text-sm">
+                <span className="mb-1 block text-slate-600">Frequency</span>
+                <select
+                  value={frequency}
+                  onChange={(e) => setFrequency(e.target.value as MonitorFrequency)}
+                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </label>
+              <label className="text-sm">
+                <span className="mb-1 block text-slate-600">Notify me about</span>
+                <select
+                  value={notifyPolicy}
+                  onChange={(e) => setNotifyPolicy(e.target.value as NotifyPolicy)}
+                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
+                >
+                  <option value="all">All meaningful changes</option>
+                  <option value="important">Important changes only</option>
+                  <option value="critical">Critical only</option>
+                </select>
+              </label>
+              <button
+                onClick={createMonitor}
+                disabled={busy}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+              >
+                <Radar className="h-4 w-4" /> Start monitoring
+              </button>
+            </div>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  // --- Monitor exists → status + controls + history. --- //
+  const m = detail.monitor;
+  const hm = healthMeta(m.health);
+  return (
+    <div className="space-y-4">
+      <Card>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <Radar className="h-5 w-5 text-brand-500" />
+              <h3 className="font-semibold text-slate-900">Monitoring</h3>
+              <span className={`inline-flex items-center gap-1.5 text-sm ${hm.className}`}>
+                <span className={`h-2 w-2 rounded-full ${hm.dot}`} /> {hm.label}
+              </span>
+            </div>
+            <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-3">
+              <Field label="Schedule" value={FREQUENCY_LABEL[m.frequency] ?? m.frequency} />
+              <Field label="Notify" value={NOTIFY_POLICY_LABEL[m.notify_policy] ?? m.notify_policy} />
+              <Field label="Source policy" value={m.source_policy ?? "live preferred"} />
+              <Field
+                label="Last check"
+                value={m.last_checked_at ? new Date(m.last_checked_at).toLocaleString() : "—"}
+              />
+              <Field label="Next check" value={new Date(m.next_check_at).toLocaleString()} />
+              <Field label="Checks run" value={String(m.check_count)} />
+            </dl>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={runNow}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              <RefreshCw className="h-4 w-4" /> Run now
+            </button>
+            <button
+              onClick={() => toggle(!m.enabled)}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              {m.enabled ? "Pause" : "Resume"}
+            </button>
+            <button
+              onClick={remove}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      </Card>
+
+      <div>
+        <h4 className="mb-2 text-sm font-semibold text-slate-700">Recent checks</h4>
+        {detail.recent_checks.length === 0 ? (
+          <Card>
+            <p className="text-sm text-slate-500">
+              No checks yet. The first check will run on schedule (or press “Run now”).
+            </p>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {detail.recent_checks.map((c) => (
+              <MonitorCheckRow key={c.id} check={c} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs text-slate-400">{label}</dt>
+      <dd className="text-slate-700">{value}</dd>
+    </div>
+  );
+}
+
+export function MonitorCheckRow({ check }: { check: MonitorCheck }) {
+  const [open, setOpen] = useState(false);
+  const changes = check.meaningful_changes ?? [];
+  const hasDetail = changes.length > 0;
+  return (
+    <Card className={check.status === "changes" ? "border-brand-300" : ""}>
+      <button
+        onClick={() => hasDetail && setOpen((v) => !v)}
+        className="flex w-full items-center gap-3 text-left"
+      >
+        {hasDetail ? (
+          open ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />
+        ) : (
+          <span className="h-4 w-4" />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-slate-800">{checkStatusLabel(check.status)}</span>
+            {check.max_impact && <SeverityPill severity={check.max_impact} />}
+            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">
+              {check.provenance_mode}
+            </span>
+          </div>
+          <div className="mt-0.5 text-xs text-slate-400">
+            {new Date(check.created_at).toLocaleString()}
+            {check.suppressed_count > 0 && ` · ${check.suppressed_count} minor suppressed`}
+          </div>
+        </div>
+        {check.new_run_id && check.baseline_run_id && (
+          <Link
+            to={`/research/${check.new_run_id}/diff/${check.baseline_run_id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex shrink-0 items-center gap-1 text-xs text-brand-600 hover:underline"
+          >
+            <GitCompare className="h-3.5 w-3.5" /> View diff
+          </Link>
+        )}
+      </button>
+
+      {open && hasDetail && (
+        <ul className="mt-3 space-y-2 border-t border-slate-100 pt-3">
+          {changes.map((ch, i) => (
+            <li key={`${ch.dedup_key}-${i}`} className="flex items-start gap-2 text-sm">
+              <SeverityPill severity={ch.impact} />
+              <div className="min-w-0">
+                <span className="font-medium text-slate-800">{ch.title}.</span>{" "}
+                <span className="text-slate-600">{ch.detail}</span>
+                {!ch.notified && (
+                  <span className="ml-1 text-xs text-slate-400">(suppressed)</span>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }

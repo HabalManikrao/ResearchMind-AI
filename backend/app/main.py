@@ -13,6 +13,7 @@ from app.api import (
     documents,
     knowledge,
     monitoring,
+    monitors,
     notifications,
     research,
     schedules,
@@ -81,6 +82,7 @@ app.add_middleware(
 app.include_router(system.router)
 app.include_router(auth.router)
 app.include_router(research.router)
+app.include_router(monitors.router)  # /research/{id}/monitor (#6)
 app.include_router(documents.router)
 app.include_router(knowledge.router)
 app.include_router(monitoring.router)

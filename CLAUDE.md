@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Current State: Phase 1–6 complete; Phase 7 near-complete (only Postgres/Redis swap left)
+## Current State: Phase 1–6 complete; Phase 7 near-complete (only Postgres/Redis swap left). Milestones #1–#6 shipped (evidence drill-down, verification, Document RAG, research memory/again/diff, connectivity intelligence, continuous monitoring)
 
 A working end-to-end Deep Research pipeline across **six source agents** plus verification, dedup,
 conflict detection, knowledge-gap follow-up, **structured R&D analysis**, a **semantic knowledge
@@ -160,6 +160,52 @@ provenance rides on existing structures, and only the web cache is genuinely new
   `provenance.test.ts`, `ResearchHealthBanner.test.tsx`. Docs:
   `docs/CONNECTIVITY-INTELLIGENCE-{IMPLEMENTATION-PLAN,COMPLETION}.md`.
 
+### Research Alerts + Continuous Monitoring (#6): evidence-aware watching, not generic alerts
+ResearchMind remembers a completed investigation, watches it on a schedule, verifies **meaningful**
+changes with the existing Diff engine, and notifies **only when what the user should believe has
+changed** — never on search noise. Reuse-first: the only genuinely new pieces are a significance
+engine and two small tables.
+- **Monitor model** (`models/monitor.py`): `ResearchMonitor` (one per **lineage**, keyed by
+  `root_id` from #4) holds cadence (`daily|weekly|monthly` → `interval_minutes`, floored by
+  `min_schedule_interval_minutes`), `source_policy` (#5), `notify_policy` (`all|important|critical`),
+  `last_run_id` (baseline), health counters, and a computed `health`
+  (HEALTHY/DEGRADED/OFFLINE/FAILING/DISABLED). `MonitorCheck` is the immutable record of each check
+  (found + suppressed changes, provenance_mode, source_health) — **monitoring history == research
+  memory** (spec §26). Both tables are new (via `create_all`); no existing table is migrated.
+- **Two-tier check** (`services/research_monitor.py:run_monitor_check`, spec §7, §25, §36): **Stage 1**
+  is a cheap probe (`resilient_collect`, **no LLM**) that re-collects the baseline's top questions and
+  compares source sets — a low-quality new source does **not** escalate; an authoritative/changed
+  cited source does. **Stage 2** (only on escalation) forks a Research-Again `refresh` run (the only
+  LLM-heavy step; awaited under a `monitor_max_concurrent_checks` semaphore), diffs it against the
+  baseline with the **existing** `research_diff.diff_runs` (no `monitor_diff.py`, spec §24), and runs
+  significance. Most scheduled checks stop cheaply at Stage 1.
+- **Significance engine** (`services/significance.py`, spec §8, §10, §18): **deterministic** impact
+  scoring over a `ResearchDiff` — recommendation reversal = CRITICAL, contradiction of a
+  high-confidence claim = CRITICAL, major confidence drop = HIGH, bare new source = LOW noise. Every
+  `Change` carries transparent reasons (never invented) + a **content-derived stable `dedup_key`** so
+  the same change isn't re-notified across checks (spec §17). `meaningful = impact ≥ MEDIUM`;
+  `notify_policy` sets the delivery threshold. 10 low-quality new sources → all suppressed; 1
+  authoritative contradiction → CRITICAL alert.
+- **Offline correctness** (spec §20): an *incomplete* external check (external unavailable, policy
+  forbids cache) is recorded `degraded` + retried with backoff — **never** reported as "no changes".
+- **Scheduler**: the existing in-process poller (`services/scheduler.py`) gained one call to
+  `research_monitor.run_due_once()` — **no second scheduler** (§34). Restart-safe (monitors persist),
+  concurrency-guarded (in-flight monitors skipped, LLM-heavy checks capped, stale-running reclaimed),
+  bounded exponential backoff on failure (§22, §35).
+- **Notifications**: reused. `Notification` gained nullable `severity`/`monitor_id`/`dedup_key`/`data`
+  (via `_ADDED_COLUMNS`); a `monitor_alert` carries impact + a `data` pointer to the baseline→new-run
+  diff. `notifications.notify()` extended (returns the id). In-app only — nothing leaves ResearchMind
+  (§33, §40), no passages/secrets in payloads.
+- **API** (`api/monitors.py`): `POST/GET/PATCH/DELETE /research/{id}/monitor`, `POST /monitor/run`
+  (same pipeline, no duplicate schedule, §30), `GET /monitor/checks` (history). Ownership via
+  `research._get_project` (404, no leak); one monitor per lineage (upsert). **Frontend**: `lib/
+  monitoring.ts` (severity/health mapping), a **Monitoring tab** in `LiveResearch` ("Monitor this
+  research" setup + status + recent checks → each links to the RunDiff), and severity chips + diff
+  links in the notification center. Config: `monitor_*` settings. Tests: `test_significance.py`,
+  `test_monitor_api.py`, `test_monitoring_pipeline.py`, `test_monitor_service.py`,
+  `test_migration_monitoring.py` + frontend `monitoring.test.ts`, `MonitorCheckRow.test.tsx`. Docs:
+  `docs/RESEARCH-MONITORING-{IMPLEMENTATION-PLAN,COMPLETION}.md`.
+
 ### Report is assembled deterministically from structured data
 The report LLM writes ONLY interpretive prose (Executive Summary / Key Findings / Detailed Analysis /
 Knowledge Gaps). Everything decision-bearing is injected from stored rows so it stays evidence-
@@ -253,15 +299,17 @@ mark-read/read-all/delete). **Frontend:** `pages/Scheduled.tsx`, `pages/Notifica
 Not yet built (remaining Phase 7): the **Postgres/Redis** swap (SQLite → Postgres, in-process SSE bus →
 Redis pub/sub, in-process scheduler → Redis/Celery beat — all already behind seams). `net.validate_url`
 exists as the SSRF control for any new outbound-fetch path — route new fetches through it. A pytest suite
-(`backend/tests/`, 213 tests) covers units, API, middleware, auth + access control, schedules,
+(`backend/tests/`, 248 tests) covers units, API, middleware, auth + access control, schedules,
 notifications, the evidence engine (freshness, scoring, contradiction agent, evidence API),
 Document RAG (parsing, chunking, upload security, service, documents API, offline+hybrid pipeline),
 research memory/again/diff (diff engine, lineage, immutability, carry-forward, migration),
 connectivity intelligence (provenance, connectivity states, source cache + isolation, resilient
-collect, live/offline/hybrid/fallback/recovery pipeline), and the full faked pipeline — run it before
-and after changes (see Commands). The **frontend** now also has a Vitest suite (`frontend/`,
-`npm test`, 31 tests: evidence + provenance mapping, `ClaimsTab` + `DocumentsPanel` DOM behavior,
-RunDiff + History lineage + LineageBar, Research Health banner).
+collect, live/offline/hybrid/fallback/recovery pipeline), research monitoring (significance impact +
+suppression, monitor scheduling/backoff/concurrency/restart, two-tier pipeline no-change/escalate/
+dedup/degraded, isolation, migration), and the full faked pipeline — run it before and after changes
+(see Commands). The **frontend** now also has a Vitest suite (`frontend/`, `npm test`, 40 tests:
+evidence + provenance + monitoring mapping, `ClaimsTab` + `DocumentsPanel` DOM behavior, RunDiff +
+History lineage + LineageBar, Research Health banner, MonitorCheckRow drill-down).
 
 ## Intended Architecture
 
@@ -347,7 +395,7 @@ cp .env.example .env                                       # set TAVILY_API_KEY,
 - API docs `http://localhost:8000/docs`; health `http://localhost:8000/health` (checks Ollama + Tavily).
 - Tables auto-create on startup (`init_db()` in `app/database.py`) — no migrations yet; columns
   added to existing tables are applied by the idempotent `_ensure_columns` ALTER (see `_ADDED_COLUMNS`).
-- **Tests:** `pip install -r requirements-dev.txt` then `.venv/Scripts/python -m pytest` (213 tests,
+- **Tests:** `pip install -r requirements-dev.txt` then `.venv/Scripts/python -m pytest` (248 tests,
   ~127s, all offline). Config in `pytest.ini` (`asyncio_mode=auto`). `tests/conftest.py` binds an
   isolated temp SQLite DB + Qdrant path via env before app import (incl. `AUTH_ENABLED=true` +
   `JWT_SECRET`), and provides fixtures: `client` (ASGI, **auto-registers a user and attaches its bearer

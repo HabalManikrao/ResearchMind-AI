@@ -131,6 +131,21 @@ class Settings(BaseSettings):
     cache_ttl_papers_minutes: int = 43200              # 30d
     cache_ttl_documents_minutes: int = 43200           # 30d (local, rarely refetched)
 
+    # Research Alerts + Continuous Monitoring (#6): watch a lineage, detect meaningful
+    # change via the existing Diff engine, notify only when it matters. All bounded for
+    # CPU-only Ollama and to respect external provider limits.
+    monitor_enabled: bool = True                       # monitor poller on/off (shares scheduler loop)
+    monitor_default_frequency: str = "daily"           # daily | weekly | monthly (no sub-hourly, §5)
+    monitor_max_concurrent_checks: int = 1             # serialize LLM-heavy child runs (§36)
+    monitor_probe_tasks: int = 6                       # Stage-1 cheap-probe budget (no LLM)
+    monitor_probe_min_reliability: float = 60.0        # a new source must clear this to escalate
+    monitor_authoritative_reliability: float = 70.0    # "authoritative" source threshold (§18)
+    monitor_high_confidence: float = 70.0              # a claim at/above this is "important" (§8)
+    monitor_major_delta: float = 15.0                  # confidence drop ≥ this = HIGH impact
+    monitor_backoff_cap_minutes: int = 10080           # 7d ceiling on failure backoff (§22)
+    monitor_stale_running_minutes: int = 60            # reclaim a check that died mid-run (§34)
+    monitor_history_limit: int = 50                    # monitor_checks returned by the API
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

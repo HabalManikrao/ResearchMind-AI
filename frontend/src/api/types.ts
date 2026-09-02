@@ -433,6 +433,98 @@ export interface Notification {
   project_id: string | null;
   read: boolean;
   created_at: string;
+  // Monitoring (#6): impact + a pointer to the relevant diff.
+  severity?: Severity | null;
+  monitor_id?: string | null;
+  data?: MonitorNotificationData | null;
+}
+
+// --- Research Alerts + Continuous Monitoring (#6) ------------------------- //
+export type Severity = "low" | "medium" | "high" | "critical";
+export type MonitorHealth = "healthy" | "degraded" | "offline" | "failing" | "disabled";
+export type MonitorFrequency = "daily" | "weekly" | "monthly";
+export type NotifyPolicy = "all" | "important" | "critical";
+
+export interface MonitorChangeRef {
+  claim_text?: string;
+  url?: string;
+  old_confidence?: number | null;
+  new_confidence?: number | null;
+  reliability?: number | null;
+  evidence_count?: number;
+}
+
+export interface MonitorChange {
+  kind: string;
+  impact: Severity;
+  title: string;
+  detail: string;
+  dedup_key: string;
+  reasons: string[];
+  refs: MonitorChangeRef;
+  notified?: boolean;
+}
+
+export interface MonitorNotificationData {
+  baseline_run_id: string;
+  new_run_id: string;
+  root_id: string;
+  changes: MonitorChange[];
+}
+
+export interface Monitor {
+  id: string;
+  root_id: string;
+  project_id: string;
+  enabled: boolean;
+  frequency: string;
+  interval_minutes: number;
+  source_policy: SourcePolicy | null;
+  notify_policy: NotifyPolicy;
+  last_run_id: string | null;
+  last_checked_at: string | null;
+  last_success_at: string | null;
+  next_check_at: string;
+  last_status: string;
+  health: MonitorHealth;
+  consecutive_failures: number;
+  failure_count: number;
+  check_count: number;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MonitorCheck {
+  id: string;
+  monitor_id: string;
+  baseline_run_id: string | null;
+  new_run_id: string | null;
+  status: string; // no_change | changes | suppressed | degraded | failed
+  provenance_mode: string;
+  meaningful_changes: MonitorChange[];
+  suppressed_count: number;
+  notification_id: string | null;
+  source_health: SourceHealth | null;
+  detail: string | null;
+  max_impact: Severity | null;
+  escalated: boolean;
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string;
+}
+
+export interface MonitorDetail {
+  monitor: Monitor;
+  recent_checks: MonitorCheck[];
+}
+
+export interface MonitorCreate {
+  frequency?: MonitorFrequency;
+  interval_minutes?: number | null;
+  source_policy?: SourcePolicy | null;
+  notify_policy?: NotifyPolicy;
+  start?: "now" | "scheduled";
 }
 
 // --- Research Memory + Again + Diff (#4) ---------------------------------- //

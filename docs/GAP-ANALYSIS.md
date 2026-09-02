@@ -87,6 +87,27 @@ source-policy picker. See `docs/CONNECTIVITY-INTELLIGENCE-IMPLEMENTATION-PLAN.md
 
 ---
 
+## ⚑ Implementation status — Milestone #6 Research Monitoring DONE (2026-09-02)
+
+Evidence-aware continuous monitoring (**#6**) is implemented, tested, shipped. ResearchMind now
+remembers a completed investigation, **watches** it on a daily/weekly/monthly schedule, and alerts the
+user **only when what they should believe has changed** — not on search noise. Reuse-first: the only
+new surface is a **significance engine** (`services/significance.py`, deterministic impact scoring over
+the existing `research_diff` — recommendation reversal = CRITICAL, contradiction of a high-confidence
+claim = CRITICAL, bare new source = LOW noise; content-derived `dedup_key` so a change is never
+re-notified) and two tables (`research_monitors`, `monitor_checks`). A **two-tier check**
+(`services/research_monitor.py`) runs a **cheap probe first** (`resilient_collect`, no LLM) and only
+escalates a *candidate-significant* change to a full Research-Again `refresh` run → `diff_runs` →
+significance → notify. The existing **poller** ticks monitors (no second scheduler; restart-safe,
+concurrency-guarded, bounded backoff). An **incomplete external check is `degraded`/retried, never "no
+changes"** (spec §20). Monitoring history is persisted as research memory; notifications gained
+nullable `severity`/`monitor_id`/`dedup_key`/`data` (in-app only, no passages/secrets). Frontend: a
+Monitoring tab (setup + status + recent checks → RunDiff) and severity chips in the notification
+center. 248 backend + 40 frontend tests. See `docs/RESEARCH-MONITORING-IMPLEMENTATION-PLAN.md` and
+`docs/RESEARCH-MONITORING-COMPLETION.md`.
+
+---
+
 ## A. Current Architecture (as-built)
 
 ```

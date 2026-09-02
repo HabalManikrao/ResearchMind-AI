@@ -121,6 +121,14 @@ class SchedulerService:
                 await run_due_once()
             except Exception:  # noqa: BLE001 - keep the loop alive
                 log.exception("Scheduler tick failed")
+            # Research monitoring (#6) shares this single poller — no separate scheduler
+            # (spec §34). A failure here must not stop scheduled research or the loop.
+            try:
+                from app.services import research_monitor
+
+                await research_monitor.run_due_once()
+            except Exception:  # noqa: BLE001 - keep the loop alive
+                log.exception("Monitor tick failed")
             await asyncio.sleep(poll)
 
 
