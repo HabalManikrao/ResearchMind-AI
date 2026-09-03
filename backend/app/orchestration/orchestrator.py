@@ -46,6 +46,7 @@ from app.models import (
 )
 from app.services import connectivity, dedup, notifications, provenance
 from app.services.collection import resilient_collect
+from app.knowledge import graph as kg_graph
 from app.knowledge import service as knowledge
 from app.knowledge.service import KnowledgeUnavailable
 from app.models.enums import SourcePolicy
@@ -334,6 +335,12 @@ async def run_research(project_id: str, control: RunControl) -> None:
 
         # --- Index into the knowledge base for future reuse (spec §14) -------
         await _index_knowledge(project_id)
+
+        # --- Update the temporal knowledge graph (#7). Best-effort: a graph failure
+        # never fails the run; a continuation reconciles against its parent via the
+        # existing Research Diff. Status is recorded in report_meta (§20, §32). --------
+        await _update_knowledge_graph(project_id, parent_id)
+
         await _emit(project_id, "done", "Research complete", progress=100)
         await notifications.notify(
             owner_id, type="research_completed", project_id=project_id,
@@ -791,6 +798,50 @@ async def _index_knowledge(project_id: str) -> None:
             project_id, "activity",
             f"Indexed {n} item(s) into the knowledge base",
             agent="knowledge", indexed=n,
+        )
+
+
+async def _update_knowledge_graph(project_id: str, parent_id: str | None) -> None:
+    """Build/update the temporal knowledge graph for a completed run (#7). Best-effort and
+    isolated: any failure degrades the graph, never the research (spec §20, §32). Records a
+    ``graph_status`` in the existing report_meta (no new column) and emits an activity."""
+    if not settings.knowledge_graph_enabled:
+        return
+    status: dict = {"state": "degraded", "entities": 0, "relationships": 0}
+    try:
+        status = await kg_graph.build_graph_for_project(project_id)
+        if parent_id:
+            recon = await kg_graph.reconcile_from_diff(parent_id, project_id)
+            status["superseded"] = recon.get("superseded", 0)
+            status["disputed"] = recon.get("disputed", 0)
+    except Exception as exc:  # noqa: BLE001 - graph must never sink a completed run
+        status = {"state": "degraded", "error": type(exc).__name__,
+                  "entities": 0, "relationships": 0}
+
+    # Merge into the existing report_meta JSON (no new column).
+    try:
+        async with _db_lock, SessionLocal() as db:
+            proj = await db.get(ResearchProject, project_id)
+            if proj is not None:
+                meta = dict(proj.report_meta or {})
+                meta["graph_status"] = status
+                proj.report_meta = meta
+                await db.commit()
+    except Exception:  # noqa: BLE001
+        pass
+
+    if status.get("state") == "ok":
+        await _emit(
+            project_id, "activity",
+            f"Knowledge graph updated — {status.get('entities', 0)} entit(y/ies), "
+            f"{status.get('relationships', 0)} relationship(s)",
+            agent="knowledge_graph", **{k: v for k, v in status.items() if k != "state"},
+        )
+    else:
+        await _emit(
+            project_id, "activity",
+            "Knowledge graph update degraded — research is unaffected, retry available",
+            agent="knowledge_graph", degraded=True,
         )
 
 

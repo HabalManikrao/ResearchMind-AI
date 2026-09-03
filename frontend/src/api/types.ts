@@ -353,6 +353,71 @@ export interface KnowledgeGraph {
   edges: GraphEdge[];
 }
 
+// --- Knowledge Graph + Temporal Knowledge (#7) --------------------------- //
+export interface EntitySummary {
+  id: string;
+  canonical_name: string;
+  entity_type: string;
+  mention_count: number;
+}
+
+export interface Entity {
+  id: string;
+  canonical_name: string;
+  normalized_name: string;
+  entity_type: string;
+  description: string | null;
+  aliases: string[];
+  mention_count: number;
+  first_observed_at: string | null;
+  last_observed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RelatedEntity {
+  relationship_id: string;
+  predicate: string;
+  direction: "out" | "in";
+  confidence: number;
+  provenance_kind: string;
+  status: string;
+  entity: EntitySummary;
+}
+
+export interface EntityDetail {
+  entity: Entity;
+  related: RelatedEntity[];
+  current_claims: number;
+  historical_claims: number;
+  source_count: number;
+  run_count: number;
+}
+
+export interface EntityClaim {
+  claim_id: string;
+  text: string;
+  status: string;
+  confidence: number;
+  evidence_state: string;
+  project_id: string;
+  run_number: number;
+  disputed: boolean;
+  superseded: boolean;
+}
+
+export interface EntityHistoryItem {
+  kind: string;
+  at: string | null;
+  project_id: string | null;
+  detail: string;
+}
+
+export interface EntityHistory {
+  entity_id: string;
+  items: EntityHistoryItem[];
+}
+
 export interface MonitoringStats {
   projects: {
     total: number;

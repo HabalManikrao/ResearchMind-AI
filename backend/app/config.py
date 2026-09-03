@@ -146,6 +146,17 @@ class Settings(BaseSettings):
     monitor_stale_running_minutes: int = 60            # reclaim a check that died mid-run (§34)
     monitor_history_limit: int = 50                    # monitor_checks returned by the API
 
+    # Knowledge Graph + Temporal Knowledge (#7): persistent evidence-backed entity graph.
+    knowledge_graph_enabled: bool = True               # build/update the graph after runs
+    kg_llm_extraction_enabled: bool = False            # Tier-2 bounded LLM entity extraction (CPU: off)
+    kg_llm_max_claims: int = 20                         # cap claim texts sent to the LLM tier
+    kg_llm_max_entities: int = 30                        # cap entities accepted from one LLM call
+    kg_max_graph_depth: int = 2                          # hard clamp on neighborhood traversal (§23, §33)
+    kg_max_graph_nodes: int = 150                        # bound nodes returned by a neighborhood query
+    kg_page_size: int = 50                               # default entity list page size
+    kg_max_page_size: int = 200                          # max entity list page size
+    kg_min_entity_length: int = 2                        # ignore trivially short entity names
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

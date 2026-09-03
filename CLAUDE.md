@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Current State: Phase 1–6 complete; Phase 7 near-complete (only Postgres/Redis swap left). Milestones #1–#6 shipped (evidence drill-down, verification, Document RAG, research memory/again/diff, connectivity intelligence, continuous monitoring)
+## Current State: Phase 1–6 complete; Phase 7 near-complete (only Postgres/Redis swap left). Milestones #1–#7 shipped (evidence drill-down, verification, Document RAG, research memory/again/diff, connectivity intelligence, continuous monitoring, knowledge graph + temporal knowledge)
 
 A working end-to-end Deep Research pipeline across **six source agents** plus verification, dedup,
 conflict detection, knowledge-gap follow-up, **structured R&D analysis**, a **semantic knowledge
@@ -206,6 +206,44 @@ engine and two small tables.
   `test_migration_monitoring.py` + frontend `monitoring.test.ts`, `MonitorCheckRow.test.tsx`. Docs:
   `docs/RESEARCH-MONITORING-{IMPLEMENTATION-PLAN,COMPLETION}.md`.
 
+### Knowledge Graph + Temporal Knowledge (#7): an evidence-backed model of what is believed
+A persistent, temporal entity graph layered **over** the existing substrate — never a parallel
+knowledge system. The existing `knowledge/service.build_graph` (a per-project on-the-fly GraphTab
+view) is untouched; #7 adds cross-run persisted entities/relationships.
+- **Schema** (`models/graph.py`, four new tables via `create_all`, **no existing-table changes** —
+  graph status rides in `report_meta`): `kg_entities` (normalized per-user-canonical; extensible
+  string `entity_type` validated by `knowledge/registry.py`, so new types need no migration),
+  `kg_relationships` (temporal entity↔entity: predicate, confidence, `provenance_kind`
+  explicit/derived/inferred, `status` active/superseded/disputed/…, `valid_from/to`,
+  `first/last_observed_at`, provenance ids), `kg_mentions` (polymorphic entity↔{claim,source,
+  document,project} — connects **existing** rows, never duplicated), `kg_claim_links` (claim↔claim,
+  `SUPERSEDES` etc.). All carry `user_id` (nullable → legacy/unowned).
+- **Build** (`knowledge/graph.py:build_graph_for_project`, deterministic, **no LLM by default**,
+  idempotent): entities from `Solution.name` + `Recommendation.recommended_option`; claim↔entity by
+  normalized substring; entity↔source/run mentions; `ALTERNATIVE_TO` (co-considered solutions) +
+  `RELATED_TO` (claim co-occurrence), all DERIVED. Conservative resolution
+  (`_resolve_or_create_entity`) matches on `(user_id, normalized_name, entity_type)` and **never**
+  merges by name similarity (`Apple` ≠ `Apple Inc.`). Optional Tier-2 LLM entity extraction
+  (`kg_llm_extraction_enabled`, off; strict schema, INFERRED).
+- **Temporal** (`reconcile_from_diff`, consumes the existing `research_diff.diff_runs` — no second
+  diff engine): each new run's matching claim `SUPERSEDES` the prior → old becomes **historical**,
+  new **current**; a CONTRADICTED claim marks its derived relationships **DISPUTED**. "Disputed" is
+  **derived** from existing verification (`evidence_state`), not recomputed.
+- **Integration**: hooked into `orchestrator._update_knowledge_graph` (after `_index_knowledge`,
+  best-effort — a graph failure degrades `report_meta["graph_status"]`, never fails the run; retry via
+  `POST /knowledge/graph/rebuild/{id}`). Research Again + Monitoring escalations fork a `refresh`
+  child that runs `run_research`, so **all three integrations share one hook** (no second pipeline).
+- **API** (`api/graph.py`, ownership-scoped `user_id == me OR NULL`, bounded/paginated):
+  `GET /knowledge/entities` (search+type+pagination), `/entities/{id}` (detail+related+counts),
+  `/entities/{id}/claims?scope=current|historical|all`, `/entities/{id}/graph?depth=1|2` (depth
+  **hard-clamped ≤ 2**), `/entities/{id}/history`, `/relationships/{id}`, `POST /graph/rebuild/{id}`.
+  **Frontend:** Knowledge page gains **Research + Entities** tabs; an **Entity detail** route
+  (`/knowledge/entities/:id`) shows type/description/related entities/current-vs-historical claims
+  (with evidence drill-down)/provenance. `lib/knowledgeGraph.ts` maps labels. Config: `kg_*` /
+  `knowledge_graph_enabled`. Tests: `test_kg_{build,temporal,api,integration,migration}.py` + frontend
+  `knowledgeGraph.test.ts`, `EntityDetail.test.tsx`. Docs:
+  `docs/KNOWLEDGE-GRAPH-{PLAN,COMPLETION}.md`.
+
 ### Report is assembled deterministically from structured data
 The report LLM writes ONLY interpretive prose (Executive Summary / Key Findings / Detailed Analysis /
 Knowledge Gaps). Everything decision-bearing is injected from stored rows so it stays evidence-
@@ -299,17 +337,20 @@ mark-read/read-all/delete). **Frontend:** `pages/Scheduled.tsx`, `pages/Notifica
 Not yet built (remaining Phase 7): the **Postgres/Redis** swap (SQLite → Postgres, in-process SSE bus →
 Redis pub/sub, in-process scheduler → Redis/Celery beat — all already behind seams). `net.validate_url`
 exists as the SSRF control for any new outbound-fetch path — route new fetches through it. A pytest suite
-(`backend/tests/`, 248 tests) covers units, API, middleware, auth + access control, schedules,
+(`backend/tests/`, 275 tests) covers units, API, middleware, auth + access control, schedules,
 notifications, the evidence engine (freshness, scoring, contradiction agent, evidence API),
 Document RAG (parsing, chunking, upload security, service, documents API, offline+hybrid pipeline),
 research memory/again/diff (diff engine, lineage, immutability, carry-forward, migration),
 connectivity intelligence (provenance, connectivity states, source cache + isolation, resilient
 collect, live/offline/hybrid/fallback/recovery pipeline), research monitoring (significance impact +
 suppression, monitor scheduling/backoff/concurrency/restart, two-tier pipeline no-change/escalate/
-dedup/degraded, isolation, migration), and the full faked pipeline — run it before and after changes
-(see Commands). The **frontend** now also has a Vitest suite (`frontend/`, `npm test`, 40 tests:
-evidence + provenance + monitoring mapping, `ClaimsTab` + `DocumentsPanel` DOM behavior, RunDiff +
-History lineage + LineageBar, Research Health banner, MonitorCheckRow drill-down).
+dedup/degraded, isolation, migration), knowledge graph (entity extraction/resolution/dedup,
+relationships, temporal supersession/disputed, research+again+diff+monitoring integration, offline
+Tier-1, failure isolation+retry, cross-user isolation, API pagination/depth-clamp, migration), and the
+full faked pipeline — run it before and after changes (see Commands). The **frontend** now also has a
+Vitest suite (`frontend/`, `npm test`, 48 tests: evidence + provenance + monitoring + knowledge-graph
+mapping, `ClaimsTab` + `DocumentsPanel` DOM behavior, RunDiff + History lineage + LineageBar, Research
+Health banner, MonitorCheckRow drill-down, EntityDetail).
 
 ## Intended Architecture
 
@@ -395,7 +436,7 @@ cp .env.example .env                                       # set TAVILY_API_KEY,
 - API docs `http://localhost:8000/docs`; health `http://localhost:8000/health` (checks Ollama + Tavily).
 - Tables auto-create on startup (`init_db()` in `app/database.py`) — no migrations yet; columns
   added to existing tables are applied by the idempotent `_ensure_columns` ALTER (see `_ADDED_COLUMNS`).
-- **Tests:** `pip install -r requirements-dev.txt` then `.venv/Scripts/python -m pytest` (248 tests,
+- **Tests:** `pip install -r requirements-dev.txt` then `.venv/Scripts/python -m pytest` (275 tests,
   ~127s, all offline). Config in `pytest.ini` (`asyncio_mode=auto`). `tests/conftest.py` binds an
   isolated temp SQLite DB + Qdrant path via env before app import (incl. `AUTH_ENABLED=true` +
   `JWT_SECRET`), and provides fixtures: `client` (ASGI, **auto-registers a user and attaches its bearer

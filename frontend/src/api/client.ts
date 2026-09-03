@@ -173,6 +173,26 @@ export const api = {
   knowledgeGraph: (id: string) => req<KnowledgeGraph>(`/knowledge/graph/${id}`),
   reindexKnowledge: () =>
     req<{ message: string }>("/knowledge/reindex", { method: "POST" }),
+
+  // --- Knowledge Graph (#7) --- //
+  entities: (params: { q?: string; type?: string; limit?: number; offset?: number } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.q) qs.set("q", params.q);
+    if (params.type) qs.set("type", params.type);
+    if (params.limit != null) qs.set("limit", String(params.limit));
+    if (params.offset != null) qs.set("offset", String(params.offset));
+    const s = qs.toString();
+    return req<import("./types").EntitySummary[]>(`/knowledge/entities${s ? `?${s}` : ""}`);
+  },
+  entity: (id: string) => req<import("./types").EntityDetail>(`/knowledge/entities/${id}`),
+  entityClaims: (id: string, scope: "current" | "historical" | "all" = "all") =>
+    req<import("./types").EntityClaim[]>(`/knowledge/entities/${id}/claims?scope=${scope}`),
+  entityHistory: (id: string) =>
+    req<import("./types").EntityHistory>(`/knowledge/entities/${id}/history`),
+  rebuildGraph: (projectId: string) =>
+    req<{ message: string; ok: boolean }>(`/knowledge/graph/rebuild/${projectId}`, {
+      method: "POST",
+    }),
   monitoringStats: () => req<MonitoringStats>("/monitoring/stats"),
   monitoringAudit: () => req<AuditEntry[]>("/monitoring/audit"),
 

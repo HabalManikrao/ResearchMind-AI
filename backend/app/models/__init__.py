@@ -11,6 +11,7 @@ from app.models.enums import (
 )
 from app.models.cache import CachedSource
 from app.models.document import Document, DocumentChunk
+from app.models.graph import KgClaimLink, KgEntity, KgMention, KgRelationship
 from app.models.monitor import MonitorCheck, ResearchMonitor
 from app.models.research import (
     AuditLog,
@@ -47,6 +48,10 @@ __all__ = [
     "Document",
     "DocumentChunk",
     "Finding",
+    "KgClaimLink",
+    "KgEntity",
+    "KgMention",
+    "KgRelationship",
     "KnowledgeGap",
     "MonitorCheck",
     "Notification",

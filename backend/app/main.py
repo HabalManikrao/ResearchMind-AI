@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import (
     auth,
     documents,
+    graph,
     knowledge,
     monitoring,
     monitors,
@@ -85,6 +86,7 @@ app.include_router(research.router)
 app.include_router(monitors.router)  # /research/{id}/monitor (#6)
 app.include_router(documents.router)
 app.include_router(knowledge.router)
+app.include_router(graph.router)  # /knowledge/entities* — Knowledge Graph (#7)
 app.include_router(monitoring.router)
 app.include_router(schedules.router)
 app.include_router(notifications.router)

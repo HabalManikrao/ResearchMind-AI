@@ -7,6 +7,7 @@ import LiveResearch from "./pages/LiveResearch";
 import RunDiff from "./pages/RunDiff";
 import History from "./pages/History";
 import Knowledge from "./pages/Knowledge";
+import EntityDetail from "./pages/EntityDetail";
 import Monitoring from "./pages/Monitoring";
 import Scheduled from "./pages/Scheduled";
 import Notifications from "./pages/Notifications";
@@ -48,6 +49,7 @@ export default function App() {
           <Route path="history" element={<History />} />
           <Route path="scheduled" element={<Scheduled />} />
           <Route path="knowledge" element={<Knowledge />} />
+          <Route path="knowledge/entities/:id" element={<EntityDetail />} />
           <Route path="notifications" element={<Notifications />} />
           <Route path="monitoring" element={<Monitoring />} />
         </Route>

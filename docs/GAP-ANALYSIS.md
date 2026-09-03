@@ -108,6 +108,27 @@ center. 248 backend + 40 frontend tests. See `docs/RESEARCH-MONITORING-IMPLEMENT
 
 ---
 
+## ⚑ Implementation status — Milestone #7 Knowledge Graph + Temporal Knowledge DONE (2026-09-02)
+
+A persistent, evidence-backed, **temporal** entity graph (**#7**) is implemented, tested, shipped —
+layered **over** the existing evidence/verification/memory/diff/monitoring substrate, never a parallel
+system. Four additive tables (`kg_entities`/`kg_relationships`/`kg_mentions`/`kg_claim_links`, via
+`create_all`, **no existing-table changes**); the graph is built **deterministically from existing
+structured data** (Solutions, Recommendation, Claims) so a normal run adds **no LLM calls** (`knowledge/
+graph.py`, Tier-2 LLM extraction off by default for CPU). Entity resolution is **conservative** (matches
+on normalized name + type; never merges `Apple` ≠ `Apple Inc.` by similarity). Temporal transitions
+**reuse the existing Research Diff** (`reconcile_from_diff`): a new run's matching claim `SUPERSEDES` the
+prior (current vs historical), a CONTRADICTED claim marks derived relationships **DISPUTED** (disputed is
+derived from existing verification, not recomputed). Graph building hooks into `orchestrator.
+_update_knowledge_graph` (best-effort — a failure degrades `report_meta["graph_status"]`, never fails the
+run; retry via `POST /knowledge/graph/rebuild`); Research Again + Monitoring escalations share the one
+hook. Ownership-scoped, bounded, paginated APIs (`/knowledge/entities*`, depth **clamped ≤ 2**). Frontend:
+Knowledge **Research + Entities** tabs + an **Entity detail** page (current/historical claims → evidence
+drill-down, provenance). 275 backend + 48 frontend tests. See `docs/KNOWLEDGE-GRAPH-PLAN.md` and
+`docs/KNOWLEDGE-GRAPH-COMPLETION.md`.
+
+---
+
 ## A. Current Architecture (as-built)
 
 ```
