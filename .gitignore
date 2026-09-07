@@ -26,3 +26,6 @@ frontend/.env
 .idea/
 .vscode/
 *.log
+
+# Milestone #9: regenerable benchmark output (not a source fixture)
+benchmark/results/

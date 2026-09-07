@@ -149,6 +149,28 @@ tests. See `docs/API-MCP-EXTENSIBILITY-PLAN.md` and `docs/API-MCP-EXTENSIBILITY-
 
 ---
 
+## ⚑ Implementation status — Milestone #9 Research Quality Benchmark + Production Hardening DONE (2026-09-04)
+
+A reproducible research-quality benchmark and a focused hardening pass (**#9**) — **no new engine, no
+dependency, no migration** (validates + hardens the existing architecture). The benchmark (`benchmark/`,
+`python -m benchmark.run_benchmark`) drives ResearchMind's **real** deterministic quality engines
+(claim scoring/verification, freshness, provenance, diff classification, monitoring significance, entity
+resolution) against **30 machine-readable scenarios** (10 categories, adversarial cases incl.
+authoritative contradiction, ambiguous `Apple`/`Apple Inc.`/`Apple Records`, stale-news, noise
+suppression) carrying ground truth, and scores structured outcomes — reimplementing nothing (spec §1),
+fully offline/deterministic (pins Ollama to a dead port). **Baseline: 30/30, all metrics 1.0** with a
+**no-false-live** provenance hard gate; a negative control proves the harness fails on wrong ground
+truth (not rubber-stamping). `test_benchmark.py` asserts the thresholds under pytest so quality can't
+silently regress. **Hardening found + fixed one P1**: `clamp_page(-1,…)`/`api.graph.list_entities`
+produced SQLite `LIMIT -1` (unbounded) — an external `/v1`/MCP client passing `?limit=-1` bypassed the
+page cap; fixed at root (floor at 1) with regression tests. `test_hardening.py` adds an offline-suite
+guard, embedding/graph failure injection, DB-integrity checks, a CPU/Ollama Stage-1-no-LLM budget
+proof, and full-lifecycle + REST/MCP external E2E. **329 backend + 50 frontend tests**, tsc + build
+green, 0 P0/P1 outstanding. See `docs/RESEARCH-QUALITY-BENCHMARK-{PLAN,REPORT}.md` and
+`docs/PRODUCTION-HARDENING-COMPLETION.md`.
+
+---
+
 ## A. Current Architecture (as-built)
 
 ```

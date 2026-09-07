@@ -1,0 +1,41 @@
+[
+  {
+    "id": "comparative_001",
+    "category": "comparative",
+    "importance": "critical",
+    "type": "significance",
+    "question": "Between runs, the recommended option flipped from OptX to OptY.",
+    "recommendation": {"kind": "reversed", "old": {"option": "OptX"}, "new": {"option": "OptY"}},
+    "expected": {"max_impact": "critical", "meaningful": true},
+    "ground_truth_note": "A recommendation reversal is the highest-impact change (spec §12)."
+  },
+  {
+    "id": "comparative_002",
+    "category": "comparative",
+    "importance": "major",
+    "type": "diff",
+    "question": "A claim's confidence rose materially between two comparison runs.",
+    "old": {"text": "Option A leads on throughput", "confidence": 60, "support_count": 2, "status": "partially_verified"},
+    "new": {"text": "Option A leads on throughput", "confidence": 80, "support_count": 2, "status": "verified"},
+    "expected": {"kind": "strengthened"}
+  },
+  {
+    "id": "comparative_003",
+    "category": "comparative",
+    "importance": "major",
+    "type": "diff",
+    "question": "A claim's confidence dropped materially between runs.",
+    "old": {"text": "Option B is cheaper at scale", "confidence": 80, "support_count": 2, "status": "verified"},
+    "new": {"text": "Option B is cheaper at scale", "confidence": 55, "support_count": 2, "status": "partially_verified"},
+    "expected": {"kind": "weakened"}
+  },
+  {
+    "id": "comparative_004",
+    "category": "comparative",
+    "importance": "major",
+    "type": "significance",
+    "question": "The recommendation's rationale/confidence changed but the option is the same.",
+    "recommendation": {"kind": "modified", "old": {"option": "OptX"}, "new": {"option": "OptX"}},
+    "expected": {"max_impact": "high", "meaningful": true}
+  }
+]

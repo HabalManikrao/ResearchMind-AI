@@ -1,0 +1,21 @@
+[
+  {
+    "id": "recommendation_001",
+    "category": "recommendation",
+    "importance": "critical",
+    "type": "significance",
+    "question": "A monitoring re-check reverses the standing recommendation.",
+    "recommendation": {"kind": "reversed", "old": {"option": "Postgres"}, "new": {"option": "SQLite"}},
+    "expected": {"max_impact": "critical", "meaningful": true},
+    "manual_review": "Reviewer confirms the reversal is warranted by the new evidence, not noise."
+  },
+  {
+    "id": "recommendation_002",
+    "category": "recommendation",
+    "importance": "major",
+    "type": "significance",
+    "question": "A recommendation emerges where there was none before.",
+    "recommendation": {"kind": "new", "old": null, "new": {"option": "Approach C"}},
+    "expected": {"max_impact": "medium", "meaningful": true}
+  }
+]

@@ -1,0 +1,50 @@
+[
+  {
+    "id": "technical_001",
+    "category": "technical",
+    "importance": "critical",
+    "type": "claim_scoring",
+    "question": "A technical claim backed by two authoritative documentation sources.",
+    "as_of": "2026-09-04",
+    "supporting": [
+      {"reliability": 82, "published_date": "2026-06-01", "source_type": "docs"},
+      {"reliability": 88, "published_date": "2026-05-01", "source_type": "docs"}
+    ],
+    "expected": {"status": "verified", "support_label": "supported", "confidence_min": 85}
+  },
+  {
+    "id": "technical_002",
+    "category": "technical",
+    "importance": "minor",
+    "type": "freshness",
+    "question": "An academic paper published 2 years ago is still fresh for its type.",
+    "as_of": "2026-09-04",
+    "published_date": "2024-11-01",
+    "source_type": "papers",
+    "expected": {"freshness": "fresh"},
+    "ground_truth_note": "Papers stay fresh for years — no single universal freshness threshold (spec §5)."
+  },
+  {
+    "id": "technical_003",
+    "category": "technical",
+    "importance": "major",
+    "type": "provenance",
+    "question": "A local uploaded document, judged on its own metadata date.",
+    "as_of": "2026-09-04",
+    "source_type": "documents",
+    "meta": {},
+    "published_date": "2026-03-01",
+    "expected": {"provenance": "local_document", "availability": "local"}
+  },
+  {
+    "id": "technical_004",
+    "category": "technical",
+    "importance": "minor",
+    "type": "diff",
+    "question": "A claim that barely changed between runs should read as unchanged.",
+    "old": {"text": "The API uses cursor pagination", "confidence": 70, "support_count": 2, "status": "verified"},
+    "new": {"text": "The API uses cursor pagination", "confidence": 72, "support_count": 2, "status": "verified"},
+    "expected": {"kind": "unchanged"},
+    "ground_truth_note": "Sub-threshold confidence jitter must not be reported as a change (spec §10, §21)."
+  }
+]

@@ -1,0 +1,66 @@
+[
+  {
+    "id": "factual_001",
+    "category": "factual",
+    "importance": "critical",
+    "type": "claim_scoring",
+    "question": "Is claim X currently supported by multiple authoritative current sources?",
+    "as_of": "2026-09-04",
+    "supporting": [
+      {"reliability": 85, "published_date": "2026-08-15", "source_type": "web"},
+      {"reliability": 82, "published_date": "2026-08-01", "source_type": "web"}
+    ],
+    "expected": {"status": "verified", "support_label": "supported", "confidence_min": 85},
+    "ground_truth_note": "Two independent fresh high-reliability sources → VERIFIED, high confidence."
+  },
+  {
+    "id": "factual_002",
+    "category": "factual",
+    "importance": "major",
+    "type": "claim_scoring",
+    "question": "A claim supported by two moderate-reliability sources.",
+    "as_of": "2026-09-04",
+    "supporting": [
+      {"reliability": 70, "published_date": "2026-08-15", "source_type": "web"},
+      {"reliability": 72, "published_date": "2026-08-01", "source_type": "web"}
+    ],
+    "expected": {"status": "partially_verified", "support_label": "weakly_supported"},
+    "ground_truth_note": "Two sources but avg reliability < 80 → PARTIALLY_VERIFIED (not fully verified)."
+  },
+  {
+    "id": "factual_003",
+    "category": "factual",
+    "importance": "major",
+    "type": "freshness",
+    "question": "A news source published three days ago.",
+    "as_of": "2026-09-04",
+    "published_date": "2026-09-01",
+    "source_type": "news",
+    "expected": {"freshness": "fresh"}
+  },
+  {
+    "id": "factual_004",
+    "category": "factual",
+    "importance": "critical",
+    "type": "provenance",
+    "question": "A live-fetched web source with no cache stamp.",
+    "as_of": "2026-09-04",
+    "source_type": "web",
+    "meta": {},
+    "published_date": "2026-08-20",
+    "expected": {"provenance": "live_web", "availability": "live"}
+  },
+  {
+    "id": "factual_005",
+    "category": "factual",
+    "importance": "major",
+    "type": "claim_scoring",
+    "question": "A claim from a single highly authoritative source.",
+    "as_of": "2026-09-04",
+    "supporting": [
+      {"reliability": 88, "published_date": "2026-08-15", "source_type": "web"}
+    ],
+    "expected": {"status": "partially_verified", "support_label": "weakly_supported"},
+    "ground_truth_note": "One source, however authoritative, cannot be VERIFIED — never trust a single source (spec §3)."
+  }
+]

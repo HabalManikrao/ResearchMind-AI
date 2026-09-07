@@ -1,0 +1,42 @@
+[
+  {
+    "id": "conflicting_001",
+    "category": "conflicting",
+    "importance": "critical",
+    "type": "claim_scoring",
+    "question": "A claim with two supporters but one authoritative source that contradicts it.",
+    "as_of": "2026-09-04",
+    "supporting": [
+      {"reliability": 85, "published_date": "2026-08-01", "source_type": "web"},
+      {"reliability": 80, "published_date": "2026-08-05", "source_type": "web"}
+    ],
+    "contradicting": [
+      {"reliability": 90, "published_date": "2026-08-20", "source_type": "web"}
+    ],
+    "expected": {"status": "conflicted", "support_label": "contradicted",
+                 "expect_contradiction": true, "confidence_max": 55},
+    "ground_truth_note": "Contradicting evidence forces CONFLICTED and lowers confidence — never hide conflicts (spec §4)."
+  },
+  {
+    "id": "conflicting_002",
+    "category": "conflicting",
+    "importance": "critical",
+    "type": "diff",
+    "question": "A previously clean claim gains contradicting evidence between runs.",
+    "old": {"text": "Service X guarantees 99.99% uptime", "confidence": 78, "support_count": 2, "contra_count": 0, "status": "verified"},
+    "new": {"text": "Service X guarantees 99.99% uptime", "confidence": 45, "support_count": 2, "contra_count": 1, "status": "conflicted"},
+    "expected": {"kind": "contradicted"}
+  },
+  {
+    "id": "conflicting_003",
+    "category": "conflicting",
+    "importance": "critical",
+    "type": "significance",
+    "question": "Monitoring finds a high-confidence claim is now contradicted.",
+    "claims": [
+      {"kind": "contradicted", "old_text": "Feature Y is supported", "new_text": "Feature Y is supported",
+       "old_confidence": 85, "new_confidence": 30, "confidence_delta": -55, "reason": "new contradicting source", "new_evidence": []}
+    ],
+    "expected": {"max_impact": "critical", "meaningful": true}
+  }
+]

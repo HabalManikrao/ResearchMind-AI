@@ -1,0 +1,35 @@
+[
+  {
+    "id": "monitoring_001",
+    "category": "monitoring",
+    "importance": "critical",
+    "type": "significance",
+    "question": "Ten new low-quality blog sources appear — pure search noise.",
+    "sources": [
+      {"kind": "new", "url": "https://blog1.example/a", "title": "blog 1", "source_type": "web", "changes": []},
+      {"kind": "new", "url": "https://blog2.example/a", "title": "blog 2", "source_type": "web", "changes": []},
+      {"kind": "new", "url": "https://blog3.example/a", "title": "blog 3", "source_type": "web", "changes": []},
+      {"kind": "new", "url": "https://blog4.example/a", "title": "blog 4", "source_type": "web", "changes": []},
+      {"kind": "new", "url": "https://blog5.example/a", "title": "blog 5", "source_type": "web", "changes": []},
+      {"kind": "new", "url": "https://blog6.example/a", "title": "blog 6", "source_type": "web", "changes": []},
+      {"kind": "new", "url": "https://blog7.example/a", "title": "blog 7", "source_type": "web", "changes": []},
+      {"kind": "new", "url": "https://blog8.example/a", "title": "blog 8", "source_type": "web", "changes": []},
+      {"kind": "new", "url": "https://blog9.example/a", "title": "blog 9", "source_type": "web", "changes": []},
+      {"kind": "new", "url": "https://blog10.example/a", "title": "blog 10", "source_type": "web", "changes": []}
+    ],
+    "expected": {"max_impact": "low", "meaningful": false},
+    "ground_truth_note": "A pile of low-quality new sources must be suppressed → NO notification (spec §12, §18)."
+  },
+  {
+    "id": "monitoring_002",
+    "category": "monitoring",
+    "importance": "major",
+    "type": "significance",
+    "question": "A single authoritative new academic source appears.",
+    "sources": [
+      {"kind": "new", "url": "https://arxiv.org/abs/2401.00001", "title": "New primary study", "source_type": "papers", "changes": []}
+    ],
+    "expected": {"max_impact": "medium", "meaningful": true},
+    "ground_truth_note": "One authoritative/primary new source is a meaningful change (spec §18)."
+  }
+]

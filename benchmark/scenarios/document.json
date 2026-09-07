@@ -1,0 +1,37 @@
+[
+  {
+    "id": "document_001",
+    "category": "document",
+    "importance": "major",
+    "type": "provenance",
+    "question": "A fresh local document is labelled local, never live.",
+    "as_of": "2026-09-04",
+    "source_type": "documents",
+    "meta": {},
+    "published_date": "2026-06-01",
+    "expected": {"provenance": "local_document", "availability": "local"}
+  },
+  {
+    "id": "document_002",
+    "category": "document",
+    "importance": "major",
+    "type": "provenance",
+    "question": "An old local document reads as stale, and still never live.",
+    "as_of": "2026-09-04",
+    "source_type": "documents",
+    "meta": {},
+    "published_date": "2019-01-01",
+    "expected": {"provenance": "local_document", "availability": "stale"}
+  },
+  {
+    "id": "document_003",
+    "category": "document",
+    "importance": "minor",
+    "type": "freshness",
+    "question": "A document dated 18 months ago is aging for its type.",
+    "as_of": "2026-09-04",
+    "published_date": "2025-03-04",
+    "source_type": "documents",
+    "expected": {"freshness": "aging"}
+  }
+]

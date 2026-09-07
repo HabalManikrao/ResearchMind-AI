@@ -1,0 +1,24 @@
+[
+  {
+    "id": "graph_001",
+    "category": "graph",
+    "importance": "critical",
+    "type": "entity_resolution",
+    "question": "Ambiguous same-prefix names must NOT be merged into one entity.",
+    "entity_type": "company",
+    "names": ["Apple", "Apple Inc.", "Apple Records"],
+    "expected": {"distinct_entities": [["Apple"], ["Apple Inc."], ["Apple Records"]]},
+    "ground_truth_note": "Conservative resolution never merges by name similarity (spec §13, §39)."
+  },
+  {
+    "id": "graph_002",
+    "category": "graph",
+    "importance": "major",
+    "type": "entity_resolution",
+    "question": "Case/punctuation/whitespace variants of one name resolve to one entity.",
+    "entity_type": "technology",
+    "names": ["Unreal Engine 5", "unreal engine 5", "Unreal Engine 5."],
+    "expected": {"distinct_entities": [["Unreal Engine 5", "Unreal Engine 5.", "unreal engine 5"]]},
+    "ground_truth_note": "Normalization merges true surface variants (trim/case/punctuation)."
+  }
+]

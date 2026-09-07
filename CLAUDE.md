@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Current State: Phase 1–6 complete; Phase 7 near-complete (only Postgres/Redis swap left). Milestones #1–#8 shipped (evidence drill-down, verification, Document RAG, research memory/again/diff, connectivity intelligence, continuous monitoring, knowledge graph + temporal knowledge, API + MCP + extensibility)
+## Current State: Phase 1–6 complete; Phase 7 near-complete (only Postgres/Redis swap left). Milestones #1–#9 shipped (evidence drill-down, verification, Document RAG, research memory/again/diff, connectivity intelligence, continuous monitoring, knowledge graph + temporal knowledge, API + MCP + extensibility, research-quality benchmark + production hardening)
 
 A working end-to-end Deep Research pipeline across **six source agents** plus verification, dedup,
 conflict detection, knowledge-gap follow-up, **structured R&D analysis**, a **semantic knowledge
@@ -281,6 +281,25 @@ ResearchMind's capabilities are consumed by the existing UI (humans), a versione
   `test_mcp.py`, `test_capability_security.py` + frontend `Integrations.test.tsx`. Docs:
   `docs/API-MCP-EXTENSIBILITY-{PLAN,COMPLETION}.md`.
 
+### Research Quality Benchmark + Production Hardening (#9): a reproducible quality baseline
+Milestone #9 added **no engine, no dependency, no migration** — it validates and hardens the existing
+architecture. The **benchmark** (`benchmark/`, run `python -m benchmark.run_benchmark` from the repo
+root) drives the **real** deterministic quality engines (`verification.score_claim`,
+`freshness.freshness_state`, `provenance.*`, `research_diff._classify`, `significance.evaluate`,
+`knowledge.graph.normalize_name` + resolution) against 30 machine-readable scenarios
+(`benchmark/scenarios/*.json`, 10 categories) carrying ground truth, and scores structured outcomes
+(claim accuracy, evidence support, citation correctness, contradiction detection, confidence
+calibration ordering, freshness, provenance incl. a **no-false-live** hard gate, diff category,
+significance impact, entity resolution). It is deterministic + offline (pins `OLLAMA_BASE_URL` to a
+dead port), reimplements nothing, and its results land in `benchmark/results/latest.json`
+(git-ignored, regenerable). Baseline: **30/30, all metrics 1.0** — the engines behave as specified. A
+**negative control** proves the harness fails when ground truth is wrong (not rubber-stamping).
+`tests/test_benchmark.py` runs it under pytest and asserts the thresholds so future milestones can't
+silently regress quality. **Hardening fix (P1):** `clamp_page(-1,…)`/`api.graph.list_entities` produced
+SQLite `LIMIT -1` (unbounded) — an external `/v1`/MCP client passing `?limit=-1` bypassed the page cap;
+fixed at root (floor page size at 1) with regression tests. Docs:
+`docs/RESEARCH-QUALITY-BENCHMARK-{PLAN,REPORT}.md`, `docs/PRODUCTION-HARDENING-COMPLETION.md`.
+
 ### Report is assembled deterministically from structured data
 The report LLM writes ONLY interpretive prose (Executive Summary / Key Findings / Detailed Analysis /
 Knowledge Gaps). Everything decision-bearing is injected from stored rows so it stays evidence-
@@ -374,7 +393,7 @@ mark-read/read-all/delete). **Frontend:** `pages/Scheduled.tsx`, `pages/Notifica
 Not yet built (remaining Phase 7): the **Postgres/Redis** swap (SQLite → Postgres, in-process SSE bus →
 Redis pub/sub, in-process scheduler → Redis/Celery beat — all already behind seams). `net.validate_url`
 exists as the SSRF control for any new outbound-fetch path — route new fetches through it. A pytest suite
-(`backend/tests/`, 313 tests) covers units, API, middleware, auth + access control, schedules,
+(`backend/tests/`, 329 tests) covers units, API, middleware, auth + access control, schedules,
 notifications, the evidence engine (freshness, scoring, contradiction agent, evidence API),
 Document RAG (parsing, chunking, upload security, service, documents API, offline+hybrid pipeline),
 research memory/again/diff (diff engine, lineage, immutability, carry-forward, migration),
@@ -386,8 +405,11 @@ relationships, temporal supersession/disputed, research+again+diff+monitoring in
 Tier-1, failure isolation+retry, cross-user isolation, API pagination/depth-clamp, migration), and the
 capability layer (transport-agnostic capabilities, REST /v1 adapter incl. error envelope/request-id/
 idempotency/pagination, MCP protocol incl. discovery/call/error-mapping/bounded/offline/REST↔MCP
-equivalence, cross-user + no-dangerous-tool security), and the full faked pipeline — run it before and
-after changes (see Commands). The **frontend** now also has a Vitest suite (`frontend/`, `npm test`, 50
+equivalence, cross-user + no-dangerous-tool security), production hardening (`test_hardening.py`:
+pagination-bounds regression, offline-suite guard, embedding/graph failure injection, DB integrity,
+CPU/Ollama Stage-1-no-LLM budget, full-lifecycle + REST/MCP external E2E) and the **research-quality
+benchmark** (`test_benchmark.py` asserts the benchmark's thresholds so quality can't silently regress),
+and the full faked pipeline — run it before and after changes (see Commands). The **frontend** now also has a Vitest suite (`frontend/`, `npm test`, 50
 tests: evidence + provenance + monitoring + knowledge-graph mapping, `ClaimsTab` + `DocumentsPanel` DOM
 behavior, RunDiff + History lineage + LineageBar, Research Health banner, MonitorCheckRow drill-down,
 EntityDetail, Integrations).
@@ -478,8 +500,11 @@ cp .env.example .env                                       # set TAVILY_API_KEY,
   added to existing tables are applied by the idempotent `_ensure_columns` ALTER (see `_ADDED_COLUMNS`).
 - **MCP server:** `.venv/Scripts/python -m app.mcp` (stdio JSON-RPC; auth via `RESEARCHMIND_TOKEN`,
   or the shared local user when `AUTH_ENABLED=false`). External REST API is `/v1/*` (OpenAPI at `/docs`).
-- **Tests:** `pip install -r requirements-dev.txt` then `.venv/Scripts/python -m pytest` (313 tests,
-  ~127s, all offline). Config in `pytest.ini` (`asyncio_mode=auto`). `tests/conftest.py` binds an
+- **Research-quality benchmark (#9):** from the **repo root**, `backend/.venv/Scripts/python -m
+  benchmark.run_benchmark` (deterministic, offline; writes `benchmark/results/latest.json`). It's also
+  asserted under pytest by `tests/test_benchmark.py`, so a quality regression turns the suite red.
+- **Tests:** `pip install -r requirements-dev.txt` then `.venv/Scripts/python -m pytest` (329 tests,
+  ~135s, all offline). Config in `pytest.ini` (`asyncio_mode=auto`). `tests/conftest.py` binds an
   isolated temp SQLite DB + Qdrant path via env before app import (incl. `AUTH_ENABLED=true` +
   `JWT_SECRET`), and provides fixtures: `client` (ASGI, **auto-registers a user and attaches its bearer
   token** — auth is enforced in the suite), `anon_client` (no credentials, for 401/isolation tests),

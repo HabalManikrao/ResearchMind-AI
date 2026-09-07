@@ -75,7 +75,8 @@ async def list_entities(
     user: User = Depends(get_current_user),
 ):
     s = get_settings()
-    page = min(limit or s.kg_page_size, s.kg_max_page_size)
+    # Floor at 1 so a negative limit can't become an unbounded SQLite query (spec §26/§49).
+    page = min(max(int(limit) if limit else s.kg_page_size, 1), s.kg_max_page_size)
     stmt = select(KgEntity).where(_owned(KgEntity, user))
     if type:
         stmt = stmt.where(KgEntity.entity_type == type.strip().lower())

@@ -1,0 +1,38 @@
+[
+  {
+    "id": "temporal_001",
+    "category": "temporal",
+    "importance": "major",
+    "type": "claim_scoring",
+    "question": "A claim supported by two reliable but old news sources on a fast-moving topic.",
+    "as_of": "2026-09-04",
+    "supporting": [
+      {"reliability": 85, "published_date": "2026-01-01", "source_type": "news"},
+      {"reliability": 84, "published_date": "2026-01-05", "source_type": "news"}
+    ],
+    "expected": {"status": "verified", "support_label": "supported", "confidence_max": 80},
+    "ground_truth_note": "Stale news evidence stays VERIFIED but recency lowers confidence (spec §5, §8)."
+  },
+  {
+    "id": "temporal_002",
+    "category": "temporal",
+    "importance": "minor",
+    "type": "freshness",
+    "question": "A web page from 8 months ago is aging for its type.",
+    "as_of": "2026-09-04",
+    "published_date": "2026-01-01",
+    "source_type": "web",
+    "expected": {"freshness": "aging"}
+  },
+  {
+    "id": "temporal_003",
+    "category": "temporal",
+    "importance": "major",
+    "type": "freshness",
+    "question": "A news source from 8 months ago is stale for its type.",
+    "as_of": "2026-09-04",
+    "published_date": "2026-01-01",
+    "source_type": "news",
+    "expected": {"freshness": "stale"}
+  }
+]

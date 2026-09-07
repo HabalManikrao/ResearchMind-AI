@@ -86,8 +86,11 @@ async def owned_project(db, project_id: str, user: User) -> ResearchProject:
 
 def clamp_page(limit: int | None, offset: int | None) -> tuple[int, int]:
     s = get_settings()
-    lim = min(limit or s.capability_page_size, s.capability_max_page_size)
-    off = max(offset or 0, 0)
+    # Floor at 1: a negative limit must never reach the DB (SQLite treats LIMIT -1 as
+    # UNBOUNDED, so an external client passing ?limit=-1 would bypass the page cap and pull
+    # the whole table — a pagination-abuse/DoS vector, spec §26/§49).
+    lim = min(max(int(limit) if limit else s.capability_page_size, 1), s.capability_max_page_size)
+    off = max(int(offset) if offset else 0, 0)
     return lim, off
 
 
