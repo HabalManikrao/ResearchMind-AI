@@ -2,11 +2,27 @@
 from __future__ import annotations
 
 import time
+import uuid
 from collections import defaultdict, deque
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
+
+_REQUEST_ID_HEADER = "X-Request-ID"
+
+
+class RequestIdMiddleware(BaseHTTPMiddleware):
+    """Lightweight request correlation (#8, spec §21, §50). Reuses a client-supplied
+    ``X-Request-ID`` or generates one; stashes it on ``request.state`` (for the error
+    envelope + audit) and echoes it on every response. Not distributed tracing."""
+
+    async def dispatch(self, request: Request, call_next):
+        rid = request.headers.get(_REQUEST_ID_HEADER) or uuid.uuid4().hex
+        request.state.request_id = rid
+        response: Response = await call_next(request)
+        response.headers.setdefault(_REQUEST_ID_HEADER, rid)
+        return response
 
 _SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",

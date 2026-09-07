@@ -11,6 +11,7 @@ import EntityDetail from "./pages/EntityDetail";
 import Monitoring from "./pages/Monitoring";
 import Scheduled from "./pages/Scheduled";
 import Notifications from "./pages/Notifications";
+import Integrations from "./pages/Integrations";
 import Login from "./pages/Login";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 
@@ -52,6 +53,7 @@ export default function App() {
           <Route path="knowledge/entities/:id" element={<EntityDetail />} />
           <Route path="notifications" element={<Notifications />} />
           <Route path="monitoring" element={<Monitoring />} />
+          <Route path="integrations" element={<Integrations />} />
         </Route>
       </Routes>
     </AuthProvider>

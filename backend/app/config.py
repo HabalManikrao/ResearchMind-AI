@@ -157,6 +157,15 @@ class Settings(BaseSettings):
     kg_max_page_size: int = 200                          # max entity list page size
     kg_min_entity_length: int = 2                        # ignore trivially short entity names
 
+    # API + MCP + Extensibility (#8): one capability layer behind REST /v1 and MCP.
+    external_api_enabled: bool = True                    # expose /v1 + capability discovery
+    concurrent_research_limit: int = 3                   # cap simultaneous runs an actor can start (§24)
+    capability_page_size: int = 25                        # default list page size for /v1 + MCP
+    capability_max_page_size: int = 100                   # max list page size
+    capability_report_excerpt_chars: int = 4000           # bounded report excerpt for MCP (§29, §31)
+    idempotency_ttl_seconds: int = 86400                  # how long an Idempotency-Key is honoured (§23)
+    mcp_server_name: str = "researchmind"                 # MCP server identity
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

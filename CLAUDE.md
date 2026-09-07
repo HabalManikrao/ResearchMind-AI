@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Current State: Phase 1–6 complete; Phase 7 near-complete (only Postgres/Redis swap left). Milestones #1–#7 shipped (evidence drill-down, verification, Document RAG, research memory/again/diff, connectivity intelligence, continuous monitoring, knowledge graph + temporal knowledge)
+## Current State: Phase 1–6 complete; Phase 7 near-complete (only Postgres/Redis swap left). Milestones #1–#8 shipped (evidence drill-down, verification, Document RAG, research memory/again/diff, connectivity intelligence, continuous monitoring, knowledge graph + temporal knowledge, API + MCP + extensibility)
 
 A working end-to-end Deep Research pipeline across **six source agents** plus verification, dedup,
 conflict detection, knowledge-gap follow-up, **structured R&D analysis**, a **semantic knowledge
@@ -244,6 +244,43 @@ view) is untouched; #7 adds cross-run persisted entities/relationships.
   `knowledgeGraph.test.ts`, `EntityDetail.test.tsx`. Docs:
   `docs/KNOWLEDGE-GRAPH-{PLAN,COMPLETION}.md`.
 
+### API + MCP + Extensibility (#8): one capability layer, many thin adapters
+ResearchMind's capabilities are consumed by the existing UI (humans), a versioned REST API
+(programs), and MCP (AI agents) — all through **one capability layer**, never duplicated logic
+(spec §1, §4, §55). The transport never changes research/evidence/provenance/security semantics.
+- **Capability layer** (`app/capabilities/`): the single, transport-agnostic implementation of
+  each capability (research start/status/report/claims/evidence/again/diff, documents, knowledge
+  entity/graph/history, monitoring status/history, system health/connectivity/capabilities/
+  version). Each function takes a resolved `User` + validated args, manages its own session,
+  **enforces the existing ownership rule** (own or legacy-NULL; 404 no-leak), bounds output, and
+  returns a plain dict. It **reuses existing services** (`research_service.manager`,
+  `research_diff`, `knowledge.graph`, `research_monitor`, `connectivity`, `documents.service`)
+  and the #7 `api/graph.py` / #6 `api/monitors.py` read helpers — no second engine/diff/graph.
+  `base.py` has the stable error model (`CapabilityError` + machine codes), `resolve_user(token)`
+  (mirrors `get_current_user` for MCP), a **capability registry** (discovery), and an in-memory
+  bounded **idempotency store** (no migration).
+- **REST `/v1`** (`app/api/v1.py`, 20 endpoints, additive — existing routes untouched so the
+  frontend + all prior tests are unaffected): thin endpoints over capabilities, JWT auth, a
+  structured **error envelope** (`{"error":{code,message,request_id}}` via a `CapabilityError`
+  handler), **request IDs** (`RequestIdMiddleware`), **`Idempotency-Key`** on start/again,
+  **202 + Location** for long-running research (reuses the background orchestrator — no second
+  queue), pagination/limits, auto-OpenAPI.
+- **MCP** (`app/mcp/`, **dependency-free** — the `mcp` pip SDK force-upgrades starlette/pydantic
+  and breaks FastAPI, so it's a stdlib **JSON-RPC 2.0 stdio server** speaking the standard
+  protocol; run `python -m app.mcp`): `initialize`/`tools/list`/`tools/call`/`resources`. **15
+  tools** with strict schemas (`additionalProperties:false`) binding to capabilities; bounded
+  structured results; `CapabilityError → isError` with a machine code; resources
+  `research://{id}`, `research://{id}/claims`, `knowledge://entity/{id}[/history]`. Auth via
+  `RESEARCHMIND_TOKEN` (or shared local user when `AUTH_ENABLED=false`). Tested at the protocol
+  layer, incl. **REST↔MCP equivalence** and **cross-user isolation via MCP**.
+- **Security**: no `read_file`/`fetch_url`/arbitrary-SQL/shell tools (asserted absent); malformed/
+  traversal ids → 404/422; graph depth clamped; errors leak no stack/SQL/paths/secrets. **No
+  migration, no new dependency.** Frontend: a read-only **Integrations** page (capability list +
+  MCP setup, placeholder token). Config: `external_api_enabled`, `concurrent_research_limit`,
+  `capability_*`, `idempotency_ttl_seconds`. Tests: `test_capabilities.py`, `test_v1_api.py`,
+  `test_mcp.py`, `test_capability_security.py` + frontend `Integrations.test.tsx`. Docs:
+  `docs/API-MCP-EXTENSIBILITY-{PLAN,COMPLETION}.md`.
+
 ### Report is assembled deterministically from structured data
 The report LLM writes ONLY interpretive prose (Executive Summary / Key Findings / Detailed Analysis /
 Knowledge Gaps). Everything decision-bearing is injected from stored rows so it stays evidence-
@@ -337,7 +374,7 @@ mark-read/read-all/delete). **Frontend:** `pages/Scheduled.tsx`, `pages/Notifica
 Not yet built (remaining Phase 7): the **Postgres/Redis** swap (SQLite → Postgres, in-process SSE bus →
 Redis pub/sub, in-process scheduler → Redis/Celery beat — all already behind seams). `net.validate_url`
 exists as the SSRF control for any new outbound-fetch path — route new fetches through it. A pytest suite
-(`backend/tests/`, 275 tests) covers units, API, middleware, auth + access control, schedules,
+(`backend/tests/`, 313 tests) covers units, API, middleware, auth + access control, schedules,
 notifications, the evidence engine (freshness, scoring, contradiction agent, evidence API),
 Document RAG (parsing, chunking, upload security, service, documents API, offline+hybrid pipeline),
 research memory/again/diff (diff engine, lineage, immutability, carry-forward, migration),
@@ -347,10 +384,13 @@ suppression, monitor scheduling/backoff/concurrency/restart, two-tier pipeline n
 dedup/degraded, isolation, migration), knowledge graph (entity extraction/resolution/dedup,
 relationships, temporal supersession/disputed, research+again+diff+monitoring integration, offline
 Tier-1, failure isolation+retry, cross-user isolation, API pagination/depth-clamp, migration), and the
-full faked pipeline — run it before and after changes (see Commands). The **frontend** now also has a
-Vitest suite (`frontend/`, `npm test`, 48 tests: evidence + provenance + monitoring + knowledge-graph
-mapping, `ClaimsTab` + `DocumentsPanel` DOM behavior, RunDiff + History lineage + LineageBar, Research
-Health banner, MonitorCheckRow drill-down, EntityDetail).
+capability layer (transport-agnostic capabilities, REST /v1 adapter incl. error envelope/request-id/
+idempotency/pagination, MCP protocol incl. discovery/call/error-mapping/bounded/offline/REST↔MCP
+equivalence, cross-user + no-dangerous-tool security), and the full faked pipeline — run it before and
+after changes (see Commands). The **frontend** now also has a Vitest suite (`frontend/`, `npm test`, 50
+tests: evidence + provenance + monitoring + knowledge-graph mapping, `ClaimsTab` + `DocumentsPanel` DOM
+behavior, RunDiff + History lineage + LineageBar, Research Health banner, MonitorCheckRow drill-down,
+EntityDetail, Integrations).
 
 ## Intended Architecture
 
@@ -436,7 +476,9 @@ cp .env.example .env                                       # set TAVILY_API_KEY,
 - API docs `http://localhost:8000/docs`; health `http://localhost:8000/health` (checks Ollama + Tavily).
 - Tables auto-create on startup (`init_db()` in `app/database.py`) — no migrations yet; columns
   added to existing tables are applied by the idempotent `_ensure_columns` ALTER (see `_ADDED_COLUMNS`).
-- **Tests:** `pip install -r requirements-dev.txt` then `.venv/Scripts/python -m pytest` (275 tests,
+- **MCP server:** `.venv/Scripts/python -m app.mcp` (stdio JSON-RPC; auth via `RESEARCHMIND_TOKEN`,
+  or the shared local user when `AUTH_ENABLED=false`). External REST API is `/v1/*` (OpenAPI at `/docs`).
+- **Tests:** `pip install -r requirements-dev.txt` then `.venv/Scripts/python -m pytest` (313 tests,
   ~127s, all offline). Config in `pytest.ini` (`asyncio_mode=auto`). `tests/conftest.py` binds an
   isolated temp SQLite DB + Qdrant path via env before app import (incl. `AUTH_ENABLED=true` +
   `JWT_SECRET`), and provides fixtures: `client` (ASGI, **auto-registers a user and attaches its bearer

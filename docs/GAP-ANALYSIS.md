@@ -129,6 +129,26 @@ drill-down, provenance). 275 backend + 48 frontend tests. See `docs/KNOWLEDGE-GR
 
 ---
 
+## ⚑ Implementation status — Milestone #8 API + MCP + Extensibility DONE (2026-09-03)
+
+An external capability layer (**#8**) is implemented, tested, shipped: ResearchMind's capabilities are
+consumed by the UI (humans), a versioned **REST `/v1`** (programs), and **MCP** (AI agents) — all
+through **one capability layer** (`app/capabilities/`), never duplicated logic. Each capability reuses
+the existing services (research engine/tasks, diff, knowledge graph, monitoring, connectivity,
+documents) and the existing ownership rule; REST and MCP are thin adapters proven equivalent by test.
+REST `/v1` (20 endpoints, additive — existing routes untouched) adds a structured **error envelope**,
+**request IDs**, **`Idempotency-Key`** (prevents duplicate expensive research on retry), **202 +
+Location** for long-running research (reuses the background orchestrator — no second queue), pagination
+and auto-OpenAPI. **MCP** is **dependency-free** (the `mcp` pip SDK force-upgrades starlette/pydantic
+and breaks FastAPI, so it's a stdlib JSON-RPC 2.0 stdio server speaking the standard protocol; `python
+-m app.mcp`) with **15 tools** + resources, strict schemas, bounded structured output, `isError`
+mapping, and token auth. Security: cross-user isolation enforced in the capability layer (tested via
+REST **and** MCP); no `read_file`/`fetch_url`/SQL/shell tools; depth-clamped; no secret leakage.
+**No migration, no new dependency.** Frontend: a read-only Integrations page. 313 backend + 50 frontend
+tests. See `docs/API-MCP-EXTENSIBILITY-PLAN.md` and `docs/API-MCP-EXTENSIBILITY-COMPLETION.md`.
+
+---
+
 ## A. Current Architecture (as-built)
 
 ```

@@ -10,6 +10,7 @@ import {
   LogOut,
   CalendarClock,
   Bell,
+  Plug,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
@@ -23,6 +24,7 @@ const NAV = [
   { to: "/knowledge", label: "Knowledge Base", icon: Search, end: false },
   { to: "/notifications", label: "Notifications", icon: Bell, end: false, badge: true },
   { to: "/monitoring", label: "Monitoring", icon: Activity, end: false },
+  { to: "/integrations", label: "Integrations", icon: Plug, end: false },
 ];
 
 export default function Layout() {

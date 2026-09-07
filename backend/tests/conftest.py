@@ -23,6 +23,11 @@ os.environ["RATE_LIMIT_PER_MINUTE"] = "0"  # disabled globally; tested in isolat
 os.environ["AUTH_ENABLED"] = "true"  # exercise real auth in the suite
 os.environ["JWT_SECRET"] = "test-secret-key"
 os.environ["SCHEDULER_ENABLED"] = "false"  # drive scheduler explicitly in tests
+# The suite is designed to run fully offline: every LLM/embedding path is injected with the
+# FakeProvider. Point the REAL Ollama client at an unreachable port so any un-faked path
+# (e.g. /knowledge/status, /health, un-patched document retrieval) is deterministically
+# "unavailable" instead of depending on whether the dev box happens to have Ollama running.
+os.environ["OLLAMA_BASE_URL"] = "http://127.0.0.1:1"
 # Pin research budgets so the suite is hermetic — otherwise a developer's tuned
 # backend/.env (e.g. MAX_RESEARCH_TASKS=3 for slow CPU boxes) leaks in and starves
 # multi-source dispatch tests. These match the code defaults the tests target.
@@ -270,6 +275,11 @@ def patch_pipeline(monkeypatch):
     # Knowledge indexing uses its own provider handle.
     import app.knowledge.service as ksvc
     monkeypatch.setattr(ksvc, "get_provider", lambda: provider)
+    # Document retrieval uses its own provider handle too; pin it to the fake so document
+    # search stays offline AND dimension-consistent with indexed fake vectors (a real local
+    # Ollama would return 768-dim query vectors that mismatch the suite's 32-dim fakes).
+    import app.documents.service as dsvc
+    monkeypatch.setattr(dsvc, "get_provider", lambda: provider)
     return provider
 
 

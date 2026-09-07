@@ -5,8 +5,9 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api import (
     auth,
@@ -19,10 +20,16 @@ from app.api import (
     research,
     schedules,
     system,
+    v1,
 )
+from app.capabilities.base import CapabilityError
 from app.config import get_settings
 from app.database import init_db
-from app.security.middleware import RateLimitMiddleware, SecurityHeadersMiddleware
+from app.security.middleware import (
+    RateLimitMiddleware,
+    RequestIdMiddleware,
+    SecurityHeadersMiddleware,
+)
 from app.services.scheduler import scheduler
 
 settings = get_settings()
@@ -69,9 +76,23 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Middleware runs bottom-up: rate limit first, then security headers, then CORS.
+# Middleware runs bottom-up: rate limit, then request-id, then security headers, then CORS.
 app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestIdMiddleware)
 app.add_middleware(RateLimitMiddleware, limit_per_minute=settings.rate_limit_per_minute)
+
+
+@app.exception_handler(CapabilityError)
+async def _capability_error_handler(request: Request, exc: CapabilityError) -> JSONResponse:
+    """The external error contract (#8, spec §20, §32): stable code + safe message + request
+    id. Only the capability layer (behind /v1) raises this, so internal routes keep their
+    existing ``detail`` shape and the frontend is unaffected."""
+    request_id = getattr(request.state, "request_id", None)
+    return JSONResponse(
+        status_code=exc.http_status,
+        content={"error": {"code": exc.code, "message": exc.message, "request_id": request_id}},
+        headers={"X-Request-ID": request_id} if request_id else None,
+    )
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
@@ -90,6 +111,8 @@ app.include_router(graph.router)  # /knowledge/entities* — Knowledge Graph (#7
 app.include_router(monitoring.router)
 app.include_router(schedules.router)
 app.include_router(notifications.router)
+if settings.external_api_enabled:
+    app.include_router(v1.router)  # external REST API v1 over the capability layer (#8)
 
 
 @app.get("/")

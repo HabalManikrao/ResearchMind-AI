@@ -193,6 +193,11 @@ export const api = {
     req<{ message: string; ok: boolean }>(`/knowledge/graph/rebuild/${projectId}`, {
       method: "POST",
     }),
+
+  // --- API + MCP + Extensibility (#8) --- //
+  capabilities: () =>
+    req<{ capabilities: import("./types").CapabilityInfo[] }>("/v1/system/capabilities"),
+  apiVersion: () => req<import("./types").ApiVersion>("/v1/system/version"),
   monitoringStats: () => req<MonitoringStats>("/monitoring/stats"),
   monitoringAudit: () => req<AuditEntry[]>("/monitoring/audit"),
 

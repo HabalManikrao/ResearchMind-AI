@@ -418,6 +418,25 @@ export interface EntityHistory {
   items: EntityHistoryItem[];
 }
 
+// --- API + MCP + Extensibility (#8) -------------------------------------- //
+export interface CapabilityInfo {
+  name: string;
+  group: string;
+  description: string;
+  requires_network: boolean;
+  may_invoke_llm: boolean;
+  long_running: boolean;
+  mutating: boolean;
+}
+
+export interface ApiVersion {
+  name: string;
+  api_version: string;
+  interfaces: { rest: string; mcp: boolean };
+  auth_enabled: boolean;
+  capabilities: number;
+}
+
 export interface MonitoringStats {
   projects: {
     total: number;
