@@ -1,0 +1,45 @@
+[
+  {
+    "id": "rec_001",
+    "category": "decision-recommendation",
+    "question": "Which datastore should we choose for a small offline single-user tool: A or B?",
+    "as_of": "2026-09-04",
+    "corpus": [
+      {"id": "s1", "title": "A docs", "url": "https://d.example/a", "reliability": 88, "published_date": "2026-07-01", "source_type": "docs", "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "A is embedded, zero-ops, ideal for single-user offline tools."},
+      {"id": "s2", "title": "A field report", "url": "https://d.example/a2", "reliability": 82, "published_date": "2026-06-10", "source_type": "web", "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "Teams report A works well for local single-user apps."},
+      {"id": "s3", "title": "B docs", "url": "https://d.example/b", "reliability": 87, "published_date": "2026-07-02", "source_type": "docs", "stance": "supports", "refs": ["c2"], "entails": ["c2"], "text": "B is a client-server database better for concurrent multi-user scale."}
+    ],
+    "candidate_claims": [
+      {"id": "c1", "text": "A suits a small offline single-user tool.", "importance": "critical", "dimensions": ["fit", "ops"]},
+      {"id": "c2", "text": "B is better for concurrent multi-user scale.", "importance": "major", "dimensions": ["scale"]}
+    ],
+    "ground_truth": {
+      "claims": [
+        {"id": "c1", "expected_status": "SUPPORTED", "importance": "critical", "supporting_refs": ["s1", "s2"], "contradicting_refs": [], "temporal_scope": "current"},
+        {"id": "c2", "expected_status": "SUPPORTED", "importance": "major", "supporting_refs": ["s3"], "contradicting_refs": [], "temporal_scope": "current", "acceptable_variants": ["PARTIALLY_SUPPORTED"]}
+      ],
+      "expected_dimensions": ["fit", "ops", "scale"],
+      "known_contradictions": [],
+      "expected_recommendation": {"required": true, "must_consider": ["A", "B"], "must_acknowledge_uncertainty": false}
+    },
+    "manual_review": "Reviewer confirms the evidence-backed recommendation (A for this constraint set) follows from the claims and considers the alternative B."
+  },
+  {
+    "id": "rec_002",
+    "category": "decision-recommendation",
+    "question": "Should we adopt X now, given contested maturity evidence?",
+    "as_of": "2026-09-04",
+    "corpus": [
+      {"id": "s1", "title": "X promoter", "url": "https://x.example/pro", "reliability": 70, "published_date": "2026-08-01", "source_type": "web", "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "X is production-ready."},
+      {"id": "s2", "title": "X incident report", "url": "https://x.example/inc", "reliability": 90, "published_date": "2026-08-15", "source_type": "docs", "stance": "contradicts", "refs": ["c1"], "entails": [], "text": "Authoritative incident review found X unstable under load."}
+    ],
+    "candidate_claims": [{"id": "c1", "text": "X is production-ready.", "importance": "critical", "dimensions": ["maturity"]}],
+    "ground_truth": {
+      "claims": [{"id": "c1", "expected_status": "CONTESTED", "importance": "critical", "supporting_refs": ["s1"], "contradicting_refs": ["s2"], "temporal_scope": "current"}],
+      "expected_dimensions": ["maturity"],
+      "known_contradictions": [{"claim": "c1", "between": ["s1", "s2"]}],
+      "expected_recommendation": {"required": true, "must_consider": ["X"], "must_acknowledge_uncertainty": true}
+    },
+    "manual_review": "A good recommendation must acknowledge the contested maturity rather than assert X is ready — the baseline would recommend adoption on a single promoter source."
+  }
+]

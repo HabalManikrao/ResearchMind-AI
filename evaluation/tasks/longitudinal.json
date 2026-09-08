@@ -1,0 +1,44 @@
+[
+  {
+    "id": "long_001",
+    "category": "longitudinal",
+    "question": "Re-research a topic after new evidence appears — does Research Again add real value?",
+    "run1_claims": [
+      {"id": "c1", "text": "Option A is recommended", "status": "verified", "confidence": 82, "support_count": 3, "contra_count": 0},
+      {"id": "c2", "text": "A scales linearly", "status": "verified", "confidence": 78, "support_count": 2, "contra_count": 0},
+      {"id": "c3", "text": "A has no known security issues", "status": "verified", "confidence": 80, "support_count": 2, "contra_count": 0}
+    ],
+    "run2_claims": [
+      {"id": "c1", "text": "Option A is recommended", "status": "verified", "confidence": 84, "support_count": 3, "contra_count": 0},
+      {"id": "c2", "text": "A scales linearly", "status": "conflicted", "confidence": 45, "support_count": 2, "contra_count": 1},
+      {"id": "c3", "text": "A has no known security issues", "status": "verified", "confidence": 80, "support_count": 2, "contra_count": 0},
+      {"id": "c4", "text": "A released v2 with breaking changes", "status": "verified", "confidence": 86, "support_count": 2, "contra_count": 0}
+    ],
+    "recommendation": {"kind": "reversed", "old": {"option": "A"}, "new": {"option": "B"}},
+    "monitoring_sources": [{"kind": "new", "url": "https://arxiv.org/abs/2402.1", "title": "primary study", "source_type": "papers", "changes": []}],
+    "run1_entities": ["Option A", "Nanite"],
+    "run2_entities": ["Option A", "Nanite", "Option B"],
+    "note": "Run 2 contradicts c2, adds c4, and reverses the recommendation — high useful change."
+  },
+  {
+    "id": "long_002",
+    "category": "longitudinal",
+    "question": "Re-research when nothing changed — a repeat run should score LOW on added value.",
+    "run1_claims": [
+      {"id": "c1", "text": "Fact one holds", "status": "verified", "confidence": 85, "support_count": 3, "contra_count": 0},
+      {"id": "c2", "text": "Fact two holds", "status": "verified", "confidence": 82, "support_count": 2, "contra_count": 0}
+    ],
+    "run2_claims": [
+      {"id": "c1", "text": "Fact one holds", "status": "verified", "confidence": 85, "support_count": 3, "contra_count": 0},
+      {"id": "c2", "text": "Fact two holds", "status": "verified", "confidence": 83, "support_count": 2, "contra_count": 0}
+    ],
+    "recommendation": {"kind": "unchanged", "old": {"option": "A"}, "new": {"option": "A"}},
+    "monitoring_sources": [
+      {"kind": "new", "url": "https://blog1.example/a", "title": "blog", "source_type": "web", "changes": []},
+      {"kind": "new", "url": "https://blog2.example/a", "title": "blog", "source_type": "web", "changes": []}
+    ],
+    "run1_entities": ["Fact One"],
+    "run2_entities": ["Fact One"],
+    "note": "Honest negative case: a run that merely repeats prior findings and only surfaces low-quality new blogs adds little value and monitoring should suppress the noise."
+  }
+]

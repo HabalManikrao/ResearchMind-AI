@@ -29,3 +29,6 @@ frontend/.env
 
 # Milestone #9: regenerable benchmark output (not a source fixture)
 benchmark/results/
+
+# Milestone #10: regenerable evaluation output (not source fixtures)
+evaluation/results/

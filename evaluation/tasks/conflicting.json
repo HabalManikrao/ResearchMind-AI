@@ -1,0 +1,50 @@
+[
+  {
+    "id": "con_001",
+    "category": "conflicting-source",
+    "question": "Does the evidence support claim Z, given a weak supporter and an authoritative contradiction?",
+    "as_of": "2026-09-04",
+    "corpus": [
+      {"id": "s1", "title": "Marketing page", "url": "https://z.example/m", "reliability": 62, "published_date": "2026-07-01", "source_type": "web", "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "Z holds under all conditions (marketing)."},
+      {"id": "s2", "title": "Peer-reviewed study", "url": "https://z.example/study", "reliability": 93, "published_date": "2026-06-15", "source_type": "papers", "stance": "contradicts", "refs": ["c1"], "entails": [], "text": "Controlled study finds Z fails under condition Q."}
+    ],
+    "candidate_claims": [{"id": "c1", "text": "Z holds under all conditions.", "importance": "critical", "dimensions": ["validity"]}],
+    "ground_truth": {
+      "claims": [{"id": "c1", "expected_status": "CONTESTED", "importance": "critical", "supporting_refs": ["s1"], "contradicting_refs": ["s2"], "temporal_scope": "current"}],
+      "expected_dimensions": ["validity"], "known_contradictions": [{"claim": "c1", "between": ["s1", "s2"]}], "expected_recommendation": null
+    }
+  },
+  {
+    "id": "con_002",
+    "category": "conflicting-source",
+    "question": "Two authoritative sources disagree — is the claim settled?",
+    "as_of": "2026-09-04",
+    "corpus": [
+      {"id": "s1", "title": "Agency A guidance", "url": "https://p.example/a", "reliability": 90, "published_date": "2026-06-01", "source_type": "docs", "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "Agency A recommends approach X."},
+      {"id": "s2", "title": "Agency B guidance", "url": "https://p.example/b", "reliability": 89, "published_date": "2026-06-20", "source_type": "docs", "stance": "contradicts", "refs": ["c1"], "entails": [], "text": "Agency B advises against approach X."}
+    ],
+    "candidate_claims": [{"id": "c1", "text": "Approach X is the recommended practice.", "importance": "critical", "dimensions": ["policy"]}],
+    "ground_truth": {
+      "claims": [{"id": "c1", "expected_status": "CONTESTED", "importance": "critical", "supporting_refs": ["s1"], "contradicting_refs": ["s2"], "temporal_scope": "current"}],
+      "expected_dimensions": ["policy"], "known_contradictions": [{"claim": "c1", "between": ["s1", "s2"]}], "expected_recommendation": null
+    },
+    "note": "Genuine authoritative disagreement — a good system flags it, not picks a side."
+  },
+  {
+    "id": "con_003",
+    "category": "conflicting-source",
+    "question": "A well-supported claim gains one weak dissenting source — should the conflict be surfaced?",
+    "as_of": "2026-09-04",
+    "corpus": [
+      {"id": "s1", "title": "Standard", "url": "https://c.example/std", "reliability": 92, "published_date": "2026-06-01", "source_type": "docs", "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "The standard specifies behaviour Y."},
+      {"id": "s2", "title": "Reference impl", "url": "https://c.example/ref", "reliability": 86, "published_date": "2026-05-20", "source_type": "github", "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "Reference implementation follows Y."},
+      {"id": "s3", "title": "Blog dissent", "url": "https://c.example/blog", "reliability": 58, "published_date": "2026-08-01", "source_type": "web", "stance": "contradicts", "refs": ["c1"], "entails": [], "text": "One blogger disputes Y without evidence."}
+    ],
+    "candidate_claims": [{"id": "c1", "text": "Behaviour Y is specified by the standard.", "importance": "major", "dimensions": ["correctness"]}],
+    "ground_truth": {
+      "claims": [{"id": "c1", "expected_status": "CONTESTED", "importance": "major", "supporting_refs": ["s1", "s2"], "contradicting_refs": ["s3"], "temporal_scope": "current"}],
+      "expected_dimensions": ["correctness"], "known_contradictions": [{"claim": "c1", "between": ["s1", "s3"]}], "expected_recommendation": null
+    },
+    "note": "The system surfaces the conflict (never hide conflicts). Confidence-meta still records 2-supporting-vs-1-weak so a reader sees the balance."
+  }
+]

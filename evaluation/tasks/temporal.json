@@ -1,0 +1,49 @@
+[
+  {
+    "id": "tmp_001",
+    "category": "temporal",
+    "question": "Is a claim supported only by old news still current on a fast-moving topic?",
+    "as_of": "2026-09-04",
+    "corpus": [
+      {"id": "s1", "title": "News Jan", "url": "https://n.example/1", "reliability": 85, "published_date": "2026-01-05", "source_type": "news", "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "As of January, provider P had the lowest price."},
+      {"id": "s2", "title": "News Feb", "url": "https://n.example/2", "reliability": 83, "published_date": "2026-02-01", "source_type": "news", "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "February report repeats P's price lead."}
+    ],
+    "candidate_claims": [{"id": "c1", "text": "Provider P currently has the lowest price.", "importance": "critical", "dimensions": ["pricing"]}],
+    "ground_truth": {
+      "claims": [{"id": "c1", "expected_status": "OUTDATED", "importance": "critical", "supporting_refs": ["s1", "s2"], "contradicting_refs": [], "temporal_scope": "current"}],
+      "expected_dimensions": ["pricing"], "known_contradictions": [], "expected_recommendation": null
+    },
+    "note": "News from months ago on a fast-moving pricing question is outdated for a 'currently' question — historically-true is not currently-true. Baseline asserts it as current."
+  },
+  {
+    "id": "tmp_002",
+    "category": "temporal",
+    "question": "A claim backed by a fresh authoritative source AND an older one — is it current?",
+    "as_of": "2026-09-04",
+    "corpus": [
+      {"id": "s1", "title": "Fresh benchmark", "url": "https://t.example/fresh", "reliability": 88, "published_date": "2026-08-01", "source_type": "docs", "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "An August 2026 benchmark confirms P supports capability C."},
+      {"id": "s2", "title": "Older benchmark", "url": "https://t.example/old", "reliability": 85, "published_date": "2023-01-01", "source_type": "docs", "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "A 2023 benchmark already showed P supports capability C."}
+    ],
+    "candidate_claims": [{"id": "c1", "text": "Provider P currently supports capability C.", "importance": "critical", "dimensions": ["capability"]}],
+    "ground_truth": {
+      "claims": [{"id": "c1", "expected_status": "SUPPORTED", "importance": "critical", "supporting_refs": ["s1", "s2"], "contradicting_refs": [], "temporal_scope": "current"}],
+      "expected_dimensions": ["capability"], "known_contradictions": [], "expected_recommendation": null
+    },
+    "note": "PROBE: a FRESH authoritative source supports the claim, so it is currently SUPPORTED — it must NOT be flagged outdated merely because a second, older source also exists."
+  },
+  {
+    "id": "tmp_003",
+    "category": "temporal",
+    "question": "A claim backed by two fresh authoritative sources is current.",
+    "as_of": "2026-09-04",
+    "corpus": [
+      {"id": "s1", "title": "Recent docs", "url": "https://t.example/r1", "reliability": 90, "published_date": "2026-08-10", "source_type": "docs", "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "Current docs confirm capability D."},
+      {"id": "s2", "title": "Recent release", "url": "https://t.example/r2", "reliability": 84, "published_date": "2026-07-20", "source_type": "docs", "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "Latest release notes confirm capability D."}
+    ],
+    "candidate_claims": [{"id": "c1", "text": "Capability D is currently available.", "importance": "major", "dimensions": ["capability"]}],
+    "ground_truth": {
+      "claims": [{"id": "c1", "expected_status": "SUPPORTED", "importance": "major", "supporting_refs": ["s1", "s2"], "contradicting_refs": [], "temporal_scope": "current"}],
+      "expected_dimensions": ["capability"], "known_contradictions": [], "expected_recommendation": null
+    }
+  }
+]

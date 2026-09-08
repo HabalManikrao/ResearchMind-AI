@@ -91,6 +91,23 @@ def test_outdated_flag_when_supporting_evidence_stale():
     assert meta["freshness"] == "stale"
 
 
+def test_fresh_source_keeps_claim_current_not_outdated():
+    """#10 regression: a claim backed by one FRESH and one stale authoritative source must NOT
+    be flagged outdated — a fresh source still supporting it means it is currently established,
+    not merely historically true. (Old majority rule rounded a 1-1 split up to 'outdated'.)"""
+    status, _, meta = score_claim(
+        [_src(0, 88, "2025-05-01", "docs"), _src(1, 85, "2022-01-01", "docs")],
+        as_of=AS_OF,
+    )
+    assert meta["outdated"] is False
+    assert status == ClaimStatus.VERIFIED
+    # Two stale sources is still a genuine majority → outdated (unchanged behaviour).
+    _, _, meta2 = score_claim(
+        [_src(0, 90, "2019-01-01", "news"), _src(1, 90, "2019-01-01", "news")], as_of=AS_OF,
+    )
+    assert meta2["outdated"] is True
+
+
 def test_confidence_meta_reports_inputs():
     _, _, meta = score_claim([_src(0, 90, "2025-05-20"), _src(1, 70, "2025-05-20")], as_of=AS_OF)
     assert meta["support_count"] == 2

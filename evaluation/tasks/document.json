@@ -1,0 +1,47 @@
+[
+  {
+    "id": "doc_001",
+    "category": "document-grounded",
+    "question": "Does the uploaded document establish claim C? (local, offline)",
+    "as_of": "2026-09-04",
+    "corpus": [
+      {"id": "s1", "title": "internal-spec.pdf p4", "url": "document://spec/p4", "reliability": 85, "published_date": "2026-06-01", "source_type": "documents", "meta": {"page_number": 4}, "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "The spec states the system enforces constraint C."}
+    ],
+    "candidate_claims": [{"id": "c1", "text": "The system enforces constraint C.", "importance": "major", "dimensions": ["compliance"]}],
+    "ground_truth": {
+      "claims": [{"id": "c1", "expected_status": "PARTIALLY_SUPPORTED", "importance": "major", "supporting_refs": ["s1"], "contradicting_refs": [], "temporal_scope": "current", "expected_provenance": "local", "evidence_not_live": true}],
+      "expected_dimensions": ["compliance"], "known_contradictions": [], "expected_recommendation": null
+    },
+    "note": "A single local document → partially supported, and its provenance must read LOCAL, never live."
+  },
+  {
+    "id": "doc_002",
+    "category": "multi-document-synthesis",
+    "question": "Do two uploaded documents jointly establish claim C?",
+    "as_of": "2026-09-04",
+    "corpus": [
+      {"id": "s1", "title": "design.pdf", "url": "document://design/p2", "reliability": 84, "published_date": "2026-05-01", "source_type": "documents", "meta": {"page_number": 2}, "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "Design doc: the pipeline validates inputs."},
+      {"id": "s2", "title": "runbook.docx", "url": "document://runbook/s1", "reliability": 82, "published_date": "2026-04-15", "source_type": "documents", "meta": {"section": "Ops"}, "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "Runbook: input validation is enforced in production."}
+    ],
+    "candidate_claims": [{"id": "c1", "text": "Inputs are validated in production.", "importance": "critical", "dimensions": ["validation"]}],
+    "ground_truth": {
+      "claims": [{"id": "c1", "expected_status": "SUPPORTED", "importance": "critical", "supporting_refs": ["s1", "s2"], "contradicting_refs": [], "temporal_scope": "current", "expected_provenance": "local", "evidence_not_live": true}],
+      "expected_dimensions": ["validation"], "known_contradictions": [], "expected_recommendation": null
+    }
+  },
+  {
+    "id": "doc_003",
+    "category": "document-grounded",
+    "question": "A claim supported only by a cached web source — is it live?",
+    "as_of": "2026-09-04",
+    "corpus": [
+      {"id": "s1", "title": "Cached vendor page", "url": "https://v.example/p", "reliability": 88, "published_date": "2026-08-01", "source_type": "web", "meta": {"provenance": "cached_web"}, "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "Vendor page (served from cache) states feature F exists."}
+    ],
+    "candidate_claims": [{"id": "c1", "text": "Feature F exists.", "importance": "major", "dimensions": ["capability"]}],
+    "ground_truth": {
+      "claims": [{"id": "c1", "expected_status": "PARTIALLY_SUPPORTED", "importance": "major", "supporting_refs": ["s1"], "contradicting_refs": [], "temporal_scope": "current", "expected_provenance": "cached", "evidence_not_live": true}],
+      "expected_dimensions": ["capability"], "known_contradictions": [], "expected_recommendation": null
+    },
+    "note": "Cache-served evidence must read CACHED, never live — the baseline mislabels it live (a false-live behavior the architecture avoids)."
+  }
+]

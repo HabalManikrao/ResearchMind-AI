@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Current State: Phase 1–6 complete; Phase 7 near-complete (only Postgres/Redis swap left). Milestones #1–#9 shipped (evidence drill-down, verification, Document RAG, research memory/again/diff, connectivity intelligence, continuous monitoring, knowledge graph + temporal knowledge, API + MCP + extensibility, research-quality benchmark + production hardening)
+## Current State: Phase 1–6 complete; Phase 7 near-complete (only Postgres/Redis swap left). Milestones #1–#10 shipped (evidence drill-down, verification, Document RAG, research memory/again/diff, connectivity intelligence, continuous monitoring, knowledge graph + temporal knowledge, API + MCP + extensibility, research-quality benchmark + production hardening, real-world evaluation + quality improvement)
 
 A working end-to-end Deep Research pipeline across **six source agents** plus verification, dedup,
 conflict detection, knowledge-gap follow-up, **structured R&D analysis**, a **semantic knowledge
@@ -300,6 +300,31 @@ SQLite `LIMIT -1` (unbounded) — an external `/v1`/MCP client passing `?limit=-
 fixed at root (floor page size at 1) with regression tests. Docs:
 `docs/RESEARCH-QUALITY-BENCHMARK-{PLAN,REPORT}.md`, `docs/PRODUCTION-HARDENING-COMPLETION.md`.
 
+### Real-World Research Evaluation + Quality Improvement (#10): architecture value, measured
+Milestone #10 evaluated whether the architecture actually produces better research — **no new
+engine, no dependency, no migration**. The evaluation (`evaluation/`, run `python -m
+evaluation.run_evaluation` from the repo root) compares **ResearchMind** (the REAL quality
+engines composed as the pipeline composes them) against a **conventional one-shot LLM baseline**
+(accept every claim, cite the first source, no contradiction/provenance/temporal handling) on the
+**same** realistic fixture corpora — isolating architecture value from LLM quality. 18 claim-level
+tasks (independent ground truth: `evaluation/tasks/*.json`) + 2 longitudinal product-value tasks,
+scored at the **claim level** (§9): claim accuracy, evidence support, citation correctness (only
+for claims the system asserts) + completeness, contradiction handling, temporal correctness,
+confidence calibration, provenance + a **no-false-live** gate. Deterministic + offline; results in
+`evaluation/results/latest.json` (git-ignored). **Result: ResearchMind 1.0 vs baseline 0.677**,
+winning decisively on contradiction/provenance/no-false-live/temporal (+1.0 each) and claim
+accuracy (+0.55); ties on completeness (baseline's is inflated by accepting unsupported claims);
+costs more per-claim compute (the deliberate price of verification). The product-value loop is
+shown **honestly**: Research-Again adds real value when evidence changed (new/contradicted claims,
+recommendation reversal = CRITICAL) and **zero** on a pure repeat (noise suppressed).
+**Quality fix (P2) found by the evaluation:** `verification.score_claim` flagged a claim OUTDATED
+on a 1-fresh/1-stale tie (`outdated = stale_known >= (n+1)//2`) — a currently-true claim shown as
+stale; fixed to a strict majority (`> len(known)/2`) with regression tests; RM overall 0.96→1.0,
+#9 benchmark still 30/30. `tests/test_evaluation.py` asserts ResearchMind beats the baseline on the
+architecture-differentiated metrics so the value can't silently regress. Honest limitation: this
+measures architecture value on fixtures, **not** live-web collection quality. Docs:
+`docs/REAL-WORLD-RESEARCH-EVALUATION-{PLAN,REPORT}.md`, `docs/RESEARCH-QUALITY-IMPROVEMENTS.md`.
+
 ### Report is assembled deterministically from structured data
 The report LLM writes ONLY interpretive prose (Executive Summary / Key Findings / Detailed Analysis /
 Knowledge Gaps). Everything decision-bearing is injected from stored rows so it stays evidence-
@@ -393,7 +418,7 @@ mark-read/read-all/delete). **Frontend:** `pages/Scheduled.tsx`, `pages/Notifica
 Not yet built (remaining Phase 7): the **Postgres/Redis** swap (SQLite → Postgres, in-process SSE bus →
 Redis pub/sub, in-process scheduler → Redis/Celery beat — all already behind seams). `net.validate_url`
 exists as the SSRF control for any new outbound-fetch path — route new fetches through it. A pytest suite
-(`backend/tests/`, 329 tests) covers units, API, middleware, auth + access control, schedules,
+(`backend/tests/`, 337 tests) covers units, API, middleware, auth + access control, schedules,
 notifications, the evidence engine (freshness, scoring, contradiction agent, evidence API),
 Document RAG (parsing, chunking, upload security, service, documents API, offline+hybrid pipeline),
 research memory/again/diff (diff engine, lineage, immutability, carry-forward, migration),
@@ -503,7 +528,11 @@ cp .env.example .env                                       # set TAVILY_API_KEY,
 - **Research-quality benchmark (#9):** from the **repo root**, `backend/.venv/Scripts/python -m
   benchmark.run_benchmark` (deterministic, offline; writes `benchmark/results/latest.json`). It's also
   asserted under pytest by `tests/test_benchmark.py`, so a quality regression turns the suite red.
-- **Tests:** `pip install -r requirements-dev.txt` then `.venv/Scripts/python -m pytest` (329 tests,
+- **Real-world evaluation (#10):** from the **repo root**, `backend/.venv/Scripts/python -m
+  evaluation.run_evaluation` (deterministic, offline; ResearchMind vs a conventional baseline over
+  fixture tasks; writes `evaluation/results/latest.json`). Asserted under pytest by
+  `tests/test_evaluation.py` (ResearchMind must keep beating the baseline on the differentiated metrics).
+- **Tests:** `pip install -r requirements-dev.txt` then `.venv/Scripts/python -m pytest` (337 tests,
   ~135s, all offline). Config in `pytest.ini` (`asyncio_mode=auto`). `tests/conftest.py` binds an
   isolated temp SQLite DB + Qdrant path via env before app import (incl. `AUTH_ENABLED=true` +
   `JWT_SECRET`), and provides fixtures: `client` (ASGI, **auto-registers a user and attaches its bearer

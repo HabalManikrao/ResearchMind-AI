@@ -1,0 +1,59 @@
+[
+  {
+    "id": "cmp_001",
+    "category": "product-comparison",
+    "question": "Compare A and B: which leads on throughput, which on cost, and is either strictly better overall?",
+    "as_of": "2026-09-04",
+    "corpus": [
+      {"id": "s1", "title": "Bench A", "url": "https://b.example/a1", "reliability": 86, "published_date": "2026-07-01", "source_type": "docs", "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "A leads on throughput in the benchmark."},
+      {"id": "s2", "title": "Bench A2", "url": "https://b.example/a2", "reliability": 82, "published_date": "2026-06-20", "source_type": "github", "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "Independent run confirms A's throughput lead."},
+      {"id": "s3", "title": "Pricing B", "url": "https://b.example/b1", "reliability": 84, "published_date": "2026-07-05", "source_type": "docs", "stance": "supports", "refs": ["c2"], "entails": ["c2"], "text": "B is cheaper at scale."},
+      {"id": "s4", "title": "Pricing B2", "url": "https://b.example/b2", "reliability": 80, "published_date": "2026-06-25", "source_type": "web", "stance": "supports", "refs": ["c2"], "entails": ["c2"], "text": "B's total cost of ownership is lower."}
+    ],
+    "candidate_claims": [
+      {"id": "c1", "text": "A leads on throughput.", "importance": "major", "dimensions": ["throughput"]},
+      {"id": "c2", "text": "B is cheaper at scale.", "importance": "major", "dimensions": ["cost"]},
+      {"id": "c3", "text": "A is strictly better than B in every respect.", "importance": "critical", "dimensions": ["overall"]}
+    ],
+    "ground_truth": {
+      "claims": [
+        {"id": "c1", "expected_status": "SUPPORTED", "importance": "major", "supporting_refs": ["s1", "s2"], "contradicting_refs": [], "temporal_scope": "current"},
+        {"id": "c2", "expected_status": "SUPPORTED", "importance": "major", "supporting_refs": ["s3", "s4"], "contradicting_refs": [], "temporal_scope": "current"},
+        {"id": "c3", "expected_status": "UNSUPPORTED", "importance": "critical", "supporting_refs": [], "contradicting_refs": [], "temporal_scope": "current"}
+      ],
+      "expected_dimensions": ["throughput", "cost"], "known_contradictions": [], "expected_recommendation": null
+    },
+    "note": "The over-broad 'strictly better in every respect' claim has no support — baseline asserts it anyway."
+  },
+  {
+    "id": "cmp_002",
+    "category": "product-comparison",
+    "question": "Is A faster than B? Sources disagree.",
+    "as_of": "2026-09-04",
+    "corpus": [
+      {"id": "s1", "title": "Vendor A blog", "url": "https://a.example/blog", "reliability": 68, "published_date": "2026-08-01", "source_type": "web", "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "A is faster (vendor claim)."},
+      {"id": "s2", "title": "Neutral benchmark", "url": "https://neutral.example/bench", "reliability": 91, "published_date": "2026-08-10", "source_type": "docs", "stance": "contradicts", "refs": ["c1"], "entails": [], "text": "In a controlled benchmark B was faster than A."}
+    ],
+    "candidate_claims": [{"id": "c1", "text": "A is faster than B.", "importance": "critical", "dimensions": ["speed"]}],
+    "ground_truth": {
+      "claims": [{"id": "c1", "expected_status": "CONTESTED", "importance": "critical", "supporting_refs": ["s1"], "contradicting_refs": ["s2"], "temporal_scope": "current"}],
+      "expected_dimensions": ["speed"], "known_contradictions": [{"claim": "c1", "between": ["s1", "s2"]}], "expected_recommendation": null
+    },
+    "note": "A weak vendor claim vs an authoritative neutral contradiction — must be flagged CONTESTED, not asserted. Baseline picks the first source and asserts A is faster."
+  },
+  {
+    "id": "cmp_003",
+    "category": "product-comparison",
+    "question": "Which option has broader ecosystem support?",
+    "as_of": "2026-09-04",
+    "corpus": [
+      {"id": "s1", "title": "Ecosystem survey", "url": "https://s.example/e1", "reliability": 87, "published_date": "2026-07-10", "source_type": "docs", "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "A has broader ecosystem support."},
+      {"id": "s2", "title": "Package registry data", "url": "https://s.example/e2", "reliability": 83, "published_date": "2026-06-30", "source_type": "github", "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "A has more actively maintained integrations."}
+    ],
+    "candidate_claims": [{"id": "c1", "text": "A has broader ecosystem support.", "importance": "major", "dimensions": ["ecosystem"]}],
+    "ground_truth": {
+      "claims": [{"id": "c1", "expected_status": "SUPPORTED", "importance": "major", "supporting_refs": ["s1", "s2"], "contradicting_refs": [], "temporal_scope": "current"}],
+      "expected_dimensions": ["ecosystem"], "known_contradictions": [], "expected_recommendation": null
+    }
+  }
+]

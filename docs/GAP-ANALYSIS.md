@@ -171,6 +171,30 @@ green, 0 P0/P1 outstanding. See `docs/RESEARCH-QUALITY-BENCHMARK-{PLAN,REPORT}.m
 
 ---
 
+## ⚑ Implementation status — Milestone #10 Real-World Research Evaluation + Quality Improvement DONE (2026-09-04)
+
+Evaluated whether the architecture actually produces better research (**#10**) — **no new engine,
+dependency, or migration**. The evaluation (`evaluation/`, `python -m evaluation.run_evaluation`)
+compares **ResearchMind** (the REAL quality engines, composed as the pipeline composes them) against
+a **conventional one-shot LLM baseline** (accept every claim, cite the first source, no
+contradiction/provenance/temporal handling) on the **same** realistic fixture corpora — isolating
+architecture value from LLM quality. 18 claim-level tasks with independent ground truth
+(`evaluation/tasks/*.json`) + 2 longitudinal product-value tasks, scored at the claim level
+(accuracy, evidence support, citation correctness+completeness, contradiction handling, temporal,
+confidence calibration, provenance + a no-false-live gate). Deterministic + offline. **Result:
+ResearchMind 1.0 vs baseline 0.677** — winning +1.0 on contradiction/provenance/no-false-live/
+temporal and +0.55 on claim accuracy; **honest ties** on completeness (baseline's is inflated by
+accepting unsupported claims) and a documented per-claim compute cost. The product-value loop is
+shown honestly: Research-Again adds real value only when evidence changed (reversal = CRITICAL) and
+**zero** on a pure repeat (noise suppressed). **The evaluation found + fixed one P2 quality defect**:
+`score_claim` flagged a claim OUTDATED on a 1-fresh/1-stale tie — fixed to a strict majority with
+regression tests (RM 0.96→1.0; #9 benchmark still 30/30). `test_evaluation.py` locks the
+baseline-beating deltas. **Honest limitation (§47): measures architecture value on fixtures, not
+live-web collection quality.** 337 backend + 50 frontend tests, tsc + build green, 0 P0/P1. See
+`docs/REAL-WORLD-RESEARCH-EVALUATION-{PLAN,REPORT}.md` and `docs/RESEARCH-QUALITY-IMPROVEMENTS.md`.
+
+---
+
 ## A. Current Architecture (as-built)
 
 ```

@@ -1,0 +1,70 @@
+[
+  {
+    "id": "cf_001",
+    "category": "current-factual",
+    "question": "Is the primary claim about product P's current capability well established?",
+    "as_of": "2026-09-04",
+    "corpus": [
+      {"id": "s1", "title": "Official docs", "url": "https://docs.p.example/x", "reliability": 90, "published_date": "2026-07-01", "source_type": "docs", "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "P supports feature X natively."},
+      {"id": "s2", "title": "Release notes", "url": "https://p.example/rel", "reliability": 85, "published_date": "2026-06-15", "source_type": "docs", "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "Feature X shipped in the latest release."}
+    ],
+    "candidate_claims": [{"id": "c1", "text": "Product P natively supports feature X.", "importance": "critical", "dimensions": ["capability"]}],
+    "ground_truth": {
+      "claims": [{"id": "c1", "expected_status": "SUPPORTED", "importance": "critical", "supporting_refs": ["s1", "s2"], "contradicting_refs": [], "temporal_scope": "current"}],
+      "expected_dimensions": ["capability"], "known_contradictions": [], "expected_recommendation": null
+    },
+    "note": "Well-supported fact — baseline's naive accept is also correct here (an honest tie)."
+  },
+  {
+    "id": "cf_002",
+    "category": "current-factual",
+    "question": "Is a claim backed by only one source safe to assert as established fact?",
+    "as_of": "2026-09-04",
+    "corpus": [
+      {"id": "s1", "title": "Independent benchmark", "url": "https://bench.example/p", "reliability": 88, "published_date": "2026-08-01", "source_type": "docs", "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "In this benchmark P was the fastest of the tested options."}
+    ],
+    "candidate_claims": [{"id": "c1", "text": "Product P is among the fastest options.", "importance": "major", "dimensions": ["performance"]}],
+    "ground_truth": {
+      "claims": [{"id": "c1", "expected_status": "PARTIALLY_SUPPORTED", "importance": "major", "supporting_refs": ["s1"], "contradicting_refs": [], "temporal_scope": "current"}],
+      "expected_dimensions": ["performance"], "known_contradictions": [], "expected_recommendation": null
+    },
+    "note": "One strong source → partially, not fully, verified (never trust a single source). Baseline over-claims SUPPORTED and loses claim accuracy."
+  },
+  {
+    "id": "cf_003",
+    "category": "current-factual",
+    "question": "Should a claim with no genuine supporting evidence be asserted?",
+    "as_of": "2026-09-04",
+    "corpus": [
+      {"id": "s1", "title": "Unrelated page", "url": "https://x.example/n", "reliability": 60, "published_date": "2026-05-01", "source_type": "web", "stance": "neutral", "refs": ["c1"], "entails": [], "text": "Mentions P in passing without substantiating the claim."}
+    ],
+    "candidate_claims": [{"id": "c1", "text": "Product P guarantees zero downtime.", "importance": "major", "dimensions": ["reliability"]}],
+    "ground_truth": {
+      "claims": [{"id": "c1", "expected_status": "UNSUPPORTED", "importance": "major", "supporting_refs": [], "contradicting_refs": [], "temporal_scope": "current"}],
+      "expected_dimensions": [], "known_contradictions": [], "expected_recommendation": null
+    },
+    "note": "No supporting evidence → must not be asserted. This task tests rejection, not completeness: its sole claim is false, so there is no dimension to 'establish' (expected_dimensions is empty). Baseline accepts the claim and mis-cites a neutral page."
+  },
+  {
+    "id": "cf_004",
+    "category": "current-factual",
+    "question": "A two-claim factual question mixing a solid and a weak claim.",
+    "as_of": "2026-09-04",
+    "corpus": [
+      {"id": "s1", "title": "Standards body", "url": "https://std.example/a", "reliability": 92, "published_date": "2026-06-01", "source_type": "docs", "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "The standard mandates behaviour A."},
+      {"id": "s2", "title": "Reference impl", "url": "https://ref.example/a", "reliability": 84, "published_date": "2026-05-20", "source_type": "github", "stance": "supports", "refs": ["c1"], "entails": ["c1"], "text": "The reference implementation exhibits behaviour A."},
+      {"id": "s3", "title": "Forum post", "url": "https://forum.example/b", "reliability": 55, "published_date": "2026-08-10", "source_type": "community", "stance": "supports", "refs": ["c2"], "entails": [], "text": "Someone claims behaviour B but shows no evidence."}
+    ],
+    "candidate_claims": [
+      {"id": "c1", "text": "The standard mandates behaviour A.", "importance": "critical", "dimensions": ["correctness"]},
+      {"id": "c2", "text": "Behaviour B is also mandated.", "importance": "major", "dimensions": ["correctness"]}
+    ],
+    "ground_truth": {
+      "claims": [
+        {"id": "c1", "expected_status": "SUPPORTED", "importance": "critical", "supporting_refs": ["s1", "s2"], "contradicting_refs": [], "temporal_scope": "current"},
+        {"id": "c2", "expected_status": "UNSUPPORTED", "importance": "major", "supporting_refs": [], "contradicting_refs": [], "temporal_scope": "current", "acceptable_variants": ["PARTIALLY_SUPPORTED"]}
+      ],
+      "expected_dimensions": ["correctness"], "known_contradictions": [], "expected_recommendation": null
+    }
+  }
+]

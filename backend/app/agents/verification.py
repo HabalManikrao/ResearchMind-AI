@@ -136,7 +136,12 @@ def score_claim(
     known = [st for st in states if st != UNKNOWN]
     if known:
         stale_known = sum(1 for st in known if st == STALE)
-        outdated = stale_known >= (len(known) + 1) // 2  # majority of dated evidence
+        # A claim is "outdated" only when *more than half* of its dated evidence is stale.
+        # A tie (e.g. one fresh + one stale authoritative source) is NOT outdated — a fresh
+        # source still supporting the claim means it is currently established, not merely
+        # historically true (#10 evaluation finding: the old `>= (n+1)//2` rounded a 1-1 split
+        # up to "majority", over-flagging current claims as outdated).
+        outdated = stale_known > len(known) / 2
         km = sum(FRESHNESS_WEIGHT[st] for st in known) / len(known)
         aggregate_freshness = FRESH if km >= 0.85 else (AGING if km >= 0.45 else STALE)
     else:
