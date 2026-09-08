@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Current State: Phase 1–6 complete; Phase 7 near-complete (only Postgres/Redis swap left). Milestones #1–#10 shipped (evidence drill-down, verification, Document RAG, research memory/again/diff, connectivity intelligence, continuous monitoring, knowledge graph + temporal knowledge, API + MCP + extensibility, research-quality benchmark + production hardening, real-world evaluation + quality improvement)
+## Current State: Phase 1–6 complete; Phase 7 near-complete (only Postgres/Redis swap left). Milestones #1–#11 shipped (evidence drill-down, verification, Document RAG, research memory/again/diff, connectivity intelligence, continuous monitoring, knowledge graph + temporal knowledge, API + MCP + extensibility, research-quality benchmark + production hardening, real-world evaluation + quality improvement, live-web evaluation + collection/ranking quality)
 
 A working end-to-end Deep Research pipeline across **six source agents** plus verification, dedup,
 conflict detection, knowledge-gap follow-up, **structured R&D analysis**, a **semantic knowledge
@@ -325,6 +325,29 @@ architecture-differentiated metrics so the value can't silently regress. Honest 
 measures architecture value on fixtures, **not** live-web collection quality. Docs:
 `docs/REAL-WORLD-RESEARCH-EVALUATION-{PLAN,REPORT}.md`, `docs/RESEARCH-QUALITY-IMPROVEMENTS.md`.
 
+### Live-Web Research Evaluation + Collection/Ranking Quality (#11): measured, not assumed
+Milestone #11 measured how well ResearchMind discovers/ranks/verifies from the **real internet** —
+**no production code change** (evaluation harness + tests + docs only; the only edit was a
+harness-side CA-bundle fix). The harness (`evaluation/live_web/`, run `python -m
+evaluation.live_web.run_live_eval` from the repo root) drives the **existing collection path** for
+whichever provider is actually reachable, computes **collection-quality** metrics (source recall@k,
+ranking MRR + reliability-rank correlation, authority, diversity, deduplication via the production
+`normalize_url`, freshness, provenance **no-false-live** gate, ranking gain vs raw provider), and
+writes a **secret-free run manifest** (provider *config id*, never a key) to
+`evaluation/live_web/results/` (git-ignored — live results are a non-deterministic snapshot and
+**never** feed back into the #9/#10 fixtures). Provider-unavailable tasks are recorded **skipped**,
+never faked live. **Environment reality:** this sandbox has **no general web provider** (no Tavily
+key; SearXNG down), so only the **GitHub** live path ran — 8 technical tasks on real data:
+mrr_authoritative **1.0**, reliability-rank correlation **0.869**, **no-false-live True**, zero
+duplicates, but **source recall 0.377** (weak on multi-word conceptual queries). Analysis proved
+this is a **GitHub keyword-search limitation, not an RM defect** (best-match relevance gave
+identical recall), so **no production fix was justified** (Phase 12 discipline + anti-overfit).
+**0 P0/P1**; the recall gap is a documented P3 limitation; general-web live quality remains
+**unmeasured** (deferred to a provisioned environment). Offline tests (`test_live_web_eval.py`)
+verify benchmark isolation (a live run mutates no fixture; deterministic suites stay network-free),
+provenance no-false-live under mocked failure/fallback, the metrics, and no-secret-leakage. Docs:
+`docs/LIVE-WEB-RESEARCH-EVALUATION-{PLAN,REPORT}.md`.
+
 ### Report is assembled deterministically from structured data
 The report LLM writes ONLY interpretive prose (Executive Summary / Key Findings / Detailed Analysis /
 Knowledge Gaps). Everything decision-bearing is injected from stored rows so it stays evidence-
@@ -418,7 +441,7 @@ mark-read/read-all/delete). **Frontend:** `pages/Scheduled.tsx`, `pages/Notifica
 Not yet built (remaining Phase 7): the **Postgres/Redis** swap (SQLite → Postgres, in-process SSE bus →
 Redis pub/sub, in-process scheduler → Redis/Celery beat — all already behind seams). `net.validate_url`
 exists as the SSRF control for any new outbound-fetch path — route new fetches through it. A pytest suite
-(`backend/tests/`, 337 tests) covers units, API, middleware, auth + access control, schedules,
+(`backend/tests/`, 348 tests) covers units, API, middleware, auth + access control, schedules,
 notifications, the evidence engine (freshness, scoring, contradiction agent, evidence API),
 Document RAG (parsing, chunking, upload security, service, documents API, offline+hybrid pipeline),
 research memory/again/diff (diff engine, lineage, immutability, carry-forward, migration),
@@ -532,7 +555,13 @@ cp .env.example .env                                       # set TAVILY_API_KEY,
   evaluation.run_evaluation` (deterministic, offline; ResearchMind vs a conventional baseline over
   fixture tasks; writes `evaluation/results/latest.json`). Asserted under pytest by
   `tests/test_evaluation.py` (ResearchMind must keep beating the baseline on the differentiated metrics).
-- **Tests:** `pip install -r requirements-dev.txt` then `.venv/Scripts/python -m pytest` (337 tests,
+- **Live-web evaluation (#11):** from the **repo root**, `backend/.venv/Scripts/python -m
+  evaluation.live_web.run_live_eval` — a **non-deterministic** empirical snapshot that drives the real
+  collection path for whichever provider is reachable (GitHub always; web/docs/news/community need a
+  `TAVILY_API_KEY` or a running SearXNG; papers = arXiv). Writes `evaluation/live_web/results/`
+  (git-ignored). Its **offline** guarantees (isolation/provenance/failure/metrics/security) are asserted
+  by `tests/test_live_web_eval.py`.
+- **Tests:** `pip install -r requirements-dev.txt` then `.venv/Scripts/python -m pytest` (348 tests,
   ~135s, all offline). Config in `pytest.ini` (`asyncio_mode=auto`). `tests/conftest.py` binds an
   isolated temp SQLite DB + Qdrant path via env before app import (incl. `AUTH_ENABLED=true` +
   `JWT_SECRET`), and provides fixtures: `client` (ASGI, **auto-registers a user and attaches its bearer

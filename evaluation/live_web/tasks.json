@@ -1,0 +1,171 @@
+[
+  {
+    "id": "gh_001", "category": "technical", "requires_provider": "github",
+    "question": "Which open-source vector databases are most established?",
+    "search_query": "vector database", "max_results": 8,
+    "expected_intent": "discover the leading open-source vector database projects",
+    "required_concepts": ["vector database", "similarity search"],
+    "expected_source_types": ["github"],
+    "reference_sources": {"substrings": ["qdrant", "milvus", "weaviate", "chroma", "faiss"]},
+    "freshness_requirement": "active-maintenance", "contradiction_relevant": false,
+    "min_diversity": 4
+  },
+  {
+    "id": "gh_002", "category": "technical", "requires_provider": "github",
+    "question": "What are the leading Python web frameworks?",
+    "search_query": "python web framework", "max_results": 8,
+    "expected_intent": "discover established Python web frameworks",
+    "required_concepts": ["web framework", "python"],
+    "expected_source_types": ["github"],
+    "reference_sources": {"substrings": ["django", "fastapi", "flask"]},
+    "freshness_requirement": "active-maintenance", "contradiction_relevant": false,
+    "min_diversity": 3
+  },
+  {
+    "id": "gh_003", "category": "technical", "requires_provider": "github",
+    "question": "Which local LLM inference runtimes are widely used?",
+    "search_query": "local llm inference runtime", "max_results": 8,
+    "expected_intent": "discover local LLM inference/runtime projects",
+    "required_concepts": ["llm", "inference", "local"],
+    "expected_source_types": ["github"],
+    "reference_sources": {"substrings": ["ollama", "llama.cpp", "vllm", "llama"]},
+    "freshness_requirement": "active-maintenance", "contradiction_relevant": false,
+    "min_diversity": 3
+  },
+  {
+    "id": "gh_004", "category": "technical", "requires_provider": "github",
+    "question": "What are popular open-source full-text / metasearch engines?",
+    "search_query": "search engine self-hosted", "max_results": 8,
+    "expected_intent": "discover self-hosted search engines",
+    "required_concepts": ["search engine", "self-hosted"],
+    "expected_source_types": ["github"],
+    "reference_sources": {"substrings": ["searxng", "meilisearch", "typesense", "elasticsearch"]},
+    "freshness_requirement": "active-maintenance", "contradiction_relevant": false,
+    "min_diversity": 3
+  },
+  {
+    "id": "gh_005", "category": "technical", "requires_provider": "github",
+    "question": "Which Python data-validation libraries are most used?",
+    "search_query": "python data validation", "max_results": 8,
+    "expected_intent": "discover Python validation libraries",
+    "required_concepts": ["validation", "python"],
+    "expected_source_types": ["github"],
+    "reference_sources": {"substrings": ["pydantic", "marshmallow", "cerberus"]},
+    "freshness_requirement": "active-maintenance", "contradiction_relevant": false,
+    "min_diversity": 2
+  },
+  {
+    "id": "gh_006", "category": "technical", "requires_provider": "github",
+    "question": "What are widely adopted container orchestration projects?",
+    "search_query": "container orchestration", "max_results": 8,
+    "expected_intent": "discover container orchestration projects",
+    "required_concepts": ["container", "orchestration"],
+    "expected_source_types": ["github"],
+    "reference_sources": {"substrings": ["kubernetes", "nomad", "docker", "swarm"]},
+    "freshness_requirement": "active-maintenance", "contradiction_relevant": false,
+    "min_diversity": 3
+  },
+  {
+    "id": "gh_007", "category": "comparative", "requires_provider": "github",
+    "question": "Compare popular JavaScript frontend frameworks by community adoption.",
+    "search_query": "javascript frontend framework", "max_results": 8,
+    "expected_intent": "compare frontend frameworks",
+    "required_concepts": ["frontend", "framework", "javascript"],
+    "expected_source_types": ["github"],
+    "reference_sources": {"substrings": ["react", "vue", "angular", "svelte"]},
+    "freshness_requirement": "active-maintenance", "contradiction_relevant": false,
+    "min_diversity": 3
+  },
+  {
+    "id": "gh_008", "category": "technical", "requires_provider": "github",
+    "question": "Which open-source workflow/orchestration engines are established?",
+    "search_query": "workflow orchestration engine", "max_results": 8,
+    "expected_intent": "discover workflow engines",
+    "required_concepts": ["workflow", "orchestration"],
+    "expected_source_types": ["github"],
+    "reference_sources": {"substrings": ["airflow", "prefect", "dagster", "temporal"]},
+    "freshness_requirement": "active-maintenance", "contradiction_relevant": false,
+    "min_diversity": 3
+  },
+
+  {
+    "id": "web_001", "category": "stable-factual", "requires_provider": "web",
+    "question": "What is the capital of Australia, and is Sydney sometimes mistaken for it?",
+    "search_query": "capital of Australia Canberra vs Sydney",
+    "expected_intent": "verify a stable fact and a common misconception",
+    "required_concepts": ["Canberra", "capital", "Australia"],
+    "expected_source_types": ["web", "docs"],
+    "reference_sources": {"domains": ["wikipedia.org", "britannica.com"]},
+    "freshness_requirement": "none", "contradiction_relevant": false, "min_diversity": 2
+  },
+  {
+    "id": "web_002", "category": "recent", "requires_provider": "web",
+    "question": "What are the most recent developments in a fast-moving technology area?",
+    "search_query": "latest developments <topic> 2026",
+    "expected_intent": "surface recent, dated coverage",
+    "required_concepts": ["recent", "current"],
+    "expected_source_types": ["news", "web"],
+    "reference_sources": {},
+    "freshness_requirement": "recent", "contradiction_relevant": false, "min_diversity": 3
+  },
+  {
+    "id": "web_003", "category": "comparative", "requires_provider": "web",
+    "question": "Compare two managed databases for a specific workload.",
+    "search_query": "managed database A vs B comparison",
+    "expected_intent": "multi-source comparison across dimensions",
+    "required_concepts": ["comparison", "trade-offs"],
+    "expected_source_types": ["docs", "web"],
+    "reference_sources": {}, "freshness_requirement": "recent",
+    "contradiction_relevant": true, "min_diversity": 4
+  },
+  {
+    "id": "web_004", "category": "contradiction-sensitive", "requires_provider": "web",
+    "question": "Do reputable sources agree on a debated technical best practice?",
+    "search_query": "debated best practice for X pros and cons",
+    "expected_intent": "discover both sides of a genuine disagreement",
+    "required_concepts": ["for", "against"],
+    "expected_source_types": ["web", "docs", "community"],
+    "reference_sources": {}, "freshness_requirement": "none",
+    "contradiction_relevant": true, "min_diversity": 4
+  },
+  {
+    "id": "web_005", "category": "recommendation", "requires_provider": "web",
+    "question": "Which approach should a small team choose under given constraints?",
+    "search_query": "best approach for small team constraints tradeoffs",
+    "expected_intent": "evidence-backed recommendation with alternatives",
+    "required_concepts": ["recommendation", "constraints", "alternatives"],
+    "expected_source_types": ["web", "docs"],
+    "reference_sources": {}, "freshness_requirement": "recent",
+    "contradiction_relevant": true, "min_diversity": 4
+  },
+  {
+    "id": "web_006", "category": "temporal", "requires_provider": "web",
+    "question": "How has recommended guidance on a topic changed over the last few years?",
+    "search_query": "how guidance on X changed over time",
+    "expected_intent": "distinguish historical from current guidance",
+    "required_concepts": ["previously", "now", "changed"],
+    "expected_source_types": ["web", "docs"],
+    "reference_sources": {}, "freshness_requirement": "recent-and-historical",
+    "contradiction_relevant": true, "min_diversity": 3
+  },
+  {
+    "id": "web_007", "category": "technical-primary", "requires_provider": "web",
+    "question": "What does the official specification say about a protocol behaviour?",
+    "search_query": "official specification protocol behaviour",
+    "expected_intent": "prefer the primary/authoritative specification",
+    "required_concepts": ["specification", "official"],
+    "expected_source_types": ["docs"],
+    "reference_sources": {}, "freshness_requirement": "none",
+    "contradiction_relevant": false, "min_diversity": 2
+  },
+  {
+    "id": "web_008", "category": "scientific", "requires_provider": "papers",
+    "question": "What does recent peer-reviewed work conclude about a research question?",
+    "search_query": "recent peer-reviewed studies research question",
+    "expected_intent": "prefer primary academic sources",
+    "required_concepts": ["study", "evidence"],
+    "expected_source_types": ["papers"],
+    "reference_sources": {}, "freshness_requirement": "recent",
+    "contradiction_relevant": true, "min_diversity": 3
+  }
+]

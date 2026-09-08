@@ -32,3 +32,6 @@ benchmark/results/
 
 # Milestone #10: regenerable evaluation output (not source fixtures)
 evaluation/results/
+
+# Milestone #11: regenerable live-web eval output (non-deterministic snapshot)
+evaluation/live_web/results/

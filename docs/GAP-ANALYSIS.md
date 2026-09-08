@@ -195,6 +195,30 @@ live-web collection quality.** 337 backend + 50 frontend tests, tsc + build gree
 
 ---
 
+## ⚑ Implementation status — Milestone #11 Live-Web Research Evaluation + Collection/Ranking Quality DONE (2026-09-08)
+
+Measured how well ResearchMind discovers/ranks/verifies from the **real internet** (**#11**) — **no
+production code change** (evaluation harness + tests + docs only). The harness (`evaluation/live_web/`,
+`python -m evaluation.live_web.run_live_eval`) drives the **existing collection path** for whichever
+provider is reachable and computes **collection-quality** metrics (source recall@k, ranking MRR +
+reliability-rank correlation, authority, diversity, dedup via the production `normalize_url`, freshness,
+a **no-false-live** provenance gate, ranking-gain vs raw provider), writing a **secret-free manifest**
+(provider config id, never a key) to a git-ignored results dir that **never** feeds back into the #9/#10
+fixtures. **Environment reality (audited):** no general web provider here (no Tavily key; SearXNG down),
+so only the **GitHub** live path ran — 8 technical tasks on real data: mrr_authoritative **1.0**,
+reliability-rank correlation **0.869**, **no-false-live True**, zero duplicates, but **source recall
+0.377** (weak on multi-word conceptual queries). Analysis proved this is a **GitHub keyword-search
+limitation, not an RM defect** (best-match relevance gave identical recall) → **no production fix
+justified** (Phase 12 + anti-overfit). **0 P0/P1**; recall gap is a documented P3; general-web live
+quality remains **unmeasured** (deferred to a provisioned environment with a real provider).
+Offline tests (`test_live_web_eval.py`) verify benchmark isolation (a live run mutates no fixture;
+deterministic suites stay network-free), provenance no-false-live under mocked failure/fallback, the
+metrics, and no-secret-leakage. 348 backend + 50 frontend tests, tsc + build green. **Recommendation:**
+re-run with a `TAVILY_API_KEY` to fill the general-web metrics. See
+`docs/LIVE-WEB-RESEARCH-EVALUATION-{PLAN,REPORT}.md`.
+
+---
+
 ## A. Current Architecture (as-built)
 
 ```
