@@ -441,7 +441,7 @@ mark-read/read-all/delete). **Frontend:** `pages/Scheduled.tsx`, `pages/Notifica
 Not yet built (remaining Phase 7): the **Postgres/Redis** swap (SQLite → Postgres, in-process SSE bus →
 Redis pub/sub, in-process scheduler → Redis/Celery beat — all already behind seams). `net.validate_url`
 exists as the SSRF control for any new outbound-fetch path — route new fetches through it. A pytest suite
-(`backend/tests/`, 348 tests) covers units, API, middleware, auth + access control, schedules,
+(`backend/tests/`, 352 tests) covers units, API, middleware, auth + access control, schedules,
 notifications, the evidence engine (freshness, scoring, contradiction agent, evidence API),
 Document RAG (parsing, chunking, upload security, service, documents API, offline+hybrid pipeline),
 research memory/again/diff (diff engine, lineage, immutability, carry-forward, migration),
@@ -457,7 +457,7 @@ equivalence, cross-user + no-dangerous-tool security), production hardening (`te
 pagination-bounds regression, offline-suite guard, embedding/graph failure injection, DB integrity,
 CPU/Ollama Stage-1-no-LLM budget, full-lifecycle + REST/MCP external E2E) and the **research-quality
 benchmark** (`test_benchmark.py` asserts the benchmark's thresholds so quality can't silently regress),
-and the full faked pipeline — run it before and after changes (see Commands). The **frontend** now also has a Vitest suite (`frontend/`, `npm test`, 50
+and the full faked pipeline — run it before and after changes (see Commands). The **frontend** now also has a Vitest suite (`frontend/`, `npm test`, 53
 tests: evidence + provenance + monitoring + knowledge-graph mapping, `ClaimsTab` + `DocumentsPanel` DOM
 behavior, RunDiff + History lineage + LineageBar, Research Health banner, MonitorCheckRow drill-down,
 EntityDetail, Integrations).
@@ -561,7 +561,7 @@ cp .env.example .env                                       # set TAVILY_API_KEY,
   `TAVILY_API_KEY` or a running SearXNG; papers = arXiv). Writes `evaluation/live_web/results/`
   (git-ignored). Its **offline** guarantees (isolation/provenance/failure/metrics/security) are asserted
   by `tests/test_live_web_eval.py`.
-- **Tests:** `pip install -r requirements-dev.txt` then `.venv/Scripts/python -m pytest` (348 tests,
+- **Tests:** `pip install -r requirements-dev.txt` then `.venv/Scripts/python -m pytest` (352 tests,
   ~135s, all offline). Config in `pytest.ini` (`asyncio_mode=auto`). `tests/conftest.py` binds an
   isolated temp SQLite DB + Qdrant path via env before app import (incl. `AUTH_ENABLED=true` +
   `JWT_SECRET`), and provides fixtures: `client` (ASGI, **auto-registers a user and attaches its bearer

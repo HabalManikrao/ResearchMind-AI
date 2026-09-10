@@ -48,6 +48,22 @@ _MARKET_SYSTEM_EXTRA = (
 )
 
 
+# Shown instead of an LLM narrative when a run collected zero usable sources, so a
+# zero-evidence run can never read like a successful evidence-backed report (spec §23.2:
+# never invent facts/sources). The Research Health block above it explains *why* (e.g. external
+# providers unavailable); this states what it means for the reader.
+_EVIDENCE_INCOMPLETE_NOTICE = (
+    "## Research Status\n\n"
+    "> ⚠️ **Research incomplete — no evidence was successfully collected.**\n"
+    ">\n"
+    "> No usable sources were retrieved for this run, so there are no verified claims, "
+    "citations, or recommendations. The objective and research questions below reflect the "
+    "**research plan only** and must **not** be treated as an evidence-backed conclusion. "
+    "See the Research Health note above for why external sources were unavailable; re-run the "
+    "research once a source is reachable, or add local documents to research offline.\n"
+)
+
+
 @dataclass
 class ReportInput:
     objective: str
@@ -68,27 +84,38 @@ async def generate_report(provider: AIProvider, data: ReportInput) -> tuple[str,
     is_market = data.mode == "market"
     verified = [c for c in data.claims if c["status"] == ClaimStatus.VERIFIED.value]
 
-    claims_block = "\n".join(
-        f"- [{c['status']}] ({c['confidence']}%) {c['text']}" for c in data.claims
-    ) or "(no claims consolidated)"
-    findings_block = "\n".join(f"- {f}" for f in data.findings[:60]) or "(none)"
+    # Zero-evidence run: no sources were collected (e.g. every external provider failed), so
+    # there are no findings/claims/citations. Do NOT ask the LLM to synthesise a report from
+    # the plan alone — that would present unsupported prose as an evidence-backed conclusion.
+    # Emit an explicit "research incomplete" notice instead and flag it in the meta so the UI
+    # can distinguish this from a real result. The run still COMPLETED (resilience is intact);
+    # objective/questions/health/sources(none)/confidence(0) all remain visible (spec §3, §7).
+    evidence_incomplete = not data.sources
+    if evidence_incomplete:
+        narrative = _EVIDENCE_INCOMPLETE_NOTICE
+    else:
+        claims_block = "\n".join(
+            f"- [{c['status']}] ({c['confidence']}%) {c['text']}" for c in data.claims
+        ) or "(no claims consolidated)"
+        findings_block = "\n".join(f"- {f}" for f in data.findings[:60]) or "(none)"
 
-    date_line = f"Today's date is {data.as_of}.\n" if (is_market and data.as_of) else ""
-    prompt = (
-        f"Research objective: {data.objective}\n"
-        f"Original request: {data.query}\n{date_line}\n"
-        f"Research questions:\n" + "\n".join(f"- {q}" for q in data.questions) + "\n\n"
-        f"Verified & other claims:\n{claims_block}\n\n"
-        f"Findings:\n{findings_block}\n\n"
-        f"{_MARKET_SECTIONS if is_market else _SECTIONS}"
-    )
-    system = _SYSTEM + (_MARKET_SYSTEM_EXTRA if is_market else "")
-    narrative = await provider.generate(prompt, system=system)
+        date_line = f"Today's date is {data.as_of}.\n" if (is_market and data.as_of) else ""
+        prompt = (
+            f"Research objective: {data.objective}\n"
+            f"Original request: {data.query}\n{date_line}\n"
+            f"Research questions:\n" + "\n".join(f"- {q}" for q in data.questions) + "\n\n"
+            f"Verified & other claims:\n{claims_block}\n\n"
+            f"Findings:\n{findings_block}\n\n"
+            f"{_MARKET_SECTIONS if is_market else _SECTIONS}"
+        )
+        system = _SYSTEM + (_MARKET_SYSTEM_EXTRA if is_market else "")
+        narrative = await provider.generate(prompt, system=system)
 
     report_md = _assemble(data, narrative)
     meta = _confidence_meta(
         data, verified_count=len(verified), conflicted_count=len(data.conflicts)
     )
+    meta["evidence_incomplete"] = evidence_incomplete
     return report_md, meta
 
 

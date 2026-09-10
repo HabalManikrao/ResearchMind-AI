@@ -119,6 +119,39 @@ async def test_partial_outage_continues_and_reports_unavailable(
 
 
 # --------------------------------------------------------------------------- #
+# Zero external evidence — every provider fails; run completes but is honestly
+# marked evidence-incomplete (post-#11 manual-test hardening; spec §3, §7, §15).
+# --------------------------------------------------------------------------- #
+async def test_zero_evidence_run_is_marked_incomplete(client, patch_pipeline, monkeypatch):
+    monkeypatch.setattr(orch.connectivity.manager, "snapshot",
+                        _snap(DEGRADED, internet=False, provider=False))
+
+    async def all_fail(agent, *a, **k):
+        raise RuntimeError("provider outage (e.g. SearXNG down)")
+    monkeypatch.setattr(orch.dispatch, "collect", all_fail)
+    # live_only so no cache can mask the failure -> genuinely zero sources.
+    pid = await _create_run(client, sources=["web"], policy="live_only")  # completes (resilient)
+
+    # Zero usable evidence collected.
+    assert (await client.get(f"/research/{pid}/sources")).json() == []
+    detail = (await client.get(f"/research/{pid}")).json()
+    assert detail["status"] == "completed"  # orchestrator finished; not force-failed
+    meta = detail["report_meta"]
+    assert meta["evidence_incomplete"] is True
+    assert meta["overall_confidence"] == 0.0 and meta["sources_analyzed"] == 0
+    assert meta["source_health"]["research_health"] == "external_unavailable"
+
+    # The report is explicitly labelled incomplete — not a normal evidence-backed report,
+    # and no fabricated conclusions. Plan/questions + health remain visible.
+    report = (await client.get(f"/research/{pid}/report")).json()["markdown"]
+    assert "Research incomplete" in report
+    assert "evidence-backed conclusion" in report
+    assert "## Research Questions" in report
+    assert "Research Health" in report
+    assert "## Recommended Solution" not in report  # nothing fabricated
+
+
+# --------------------------------------------------------------------------- #
 # Cache fallback — live fails but a cached result is served (spec §13, §44).
 # --------------------------------------------------------------------------- #
 async def test_cache_fallback_serves_cached(client, patch_pipeline, monkeypatch):

@@ -1149,6 +1149,13 @@ async def _rd_analysis(project_id, provider) -> str:
             await db.execute(select(Finding).where(Finding.project_id == project_id))
         ).scalars().all()
 
+    # Zero-evidence run: no claims and no findings were collected (e.g. every external
+    # provider failed). Skip R&D entirely rather than let the LLM invent a comparison /
+    # recommendation from nothing — a fabricated recommendation must never appear in the
+    # report, the Recommendation tab, or the knowledge graph (post-#11 hardening; spec §23.2).
+    if not claims and not findings:
+        return ""
+
     result = await rd_analysis.analyse(
         provider,
         objective=proj.objective or proj.query,

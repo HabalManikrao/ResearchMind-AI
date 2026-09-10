@@ -287,6 +287,7 @@ export interface ReportMeta {
   conflicted_claims: number;
   total_claims: number;
   source_health?: SourceHealth; // #5
+  evidence_incomplete?: boolean; // true when a completed run collected zero usable sources
 }
 
 export interface Report {

@@ -97,31 +97,37 @@ export default function LiveResearch() {
     return p;
   }, [id]);
 
+  // The subset that actually changes while a run is in progress — polled live. Uses
+  // allSettled so a single rate-limited/failed endpoint never blanks the whole tab, and keeps
+  // the per-tick request count low so normal polling stays under the backend rate limit.
+  const loadLive = useCallback(async () => {
+    if (!id) return;
+    const [q, s, c, cf, g] = await Promise.allSettled([
+      api.questions(id), api.sources(id), api.claims(id), api.conflicts(id), api.gaps(id),
+    ]);
+    if (q.status === "fulfilled") setQuestions(q.value);
+    if (s.status === "fulfilled") setSources(s.value);
+    if (c.status === "fulfilled") setClaims(c.value);
+    if (cf.status === "fulfilled") setConflicts(cf.value);
+    if (g.status === "fulfilled") setGaps(g.value);
+  }, [id]);
+
+  // Full load — live subset + completion-only artifacts (report/solutions/recommendation/
+  // graph/lineage). These only exist at/after completion, so they're loaded on the initial
+  // load and the final refresh, NOT on every active-run tick (avoids redundant polling).
   const loadData = useCallback(async () => {
     if (!id) return;
-    const [q, s, c, cf, g, sol, rec, r] = await Promise.all([
-      api.questions(id),
-      api.sources(id),
-      api.claims(id),
-      api.conflicts(id),
-      api.gaps(id),
-      api.solutions(id),
-      api.recommendation(id),
-      api.report(id),
+    await loadLive();
+    const [sol, rec, r, graph, runs] = await Promise.allSettled([
+      api.solutions(id), api.recommendation(id), api.report(id),
+      api.knowledgeGraph(id), api.runs(id),
     ]);
-    setQuestions(q);
-    setSources(s);
-    setClaims(c);
-    setConflicts(cf);
-    setGaps(g);
-    setSolutions(sol);
-    setRecommendation(rec);
-    setReport(r);
-    // Graph is derived from stored rows; refresh it too (best-effort).
-    api.knowledgeGraph(id).then(setGraph).catch(() => setGraph(null));
-    // Lineage (runs sharing this project's root) for the Research Again / diff bar.
-    api.runs(id).then(setRuns).catch(() => setRuns([]));
-  }, [id]);
+    if (sol.status === "fulfilled") setSolutions(sol.value);
+    if (rec.status === "fulfilled") setRecommendation(rec.value);
+    if (r.status === "fulfilled") setReport(r.value);
+    if (graph.status === "fulfilled") setGraph(graph.value);
+    if (runs.status === "fulfilled") setRuns(runs.value);
+  }, [id, loadLive]);
 
   // Initial load.
   useEffect(() => {
@@ -131,15 +137,16 @@ export default function LiveResearch() {
     loadData();
   }, [loadProject, loadData]);
 
-  // While active, refresh detail + data periodically so plan/sources/claims populate live.
+  // While active, refresh only detail + the live subset so plan/sources/claims populate live
+  // without hammering the completion-only endpoints (keeps polling under the backend rate limit).
   useEffect(() => {
     if (!isActive) return;
     const t = setInterval(() => {
       loadProject();
-      loadData();
+      loadLive();
     }, 4000);
     return () => clearInterval(t);
-  }, [isActive, loadProject, loadData]);
+  }, [isActive, loadProject, loadLive]);
 
   // When the stream reports completion, do a final refresh and jump to the report.
   useEffect(() => {
@@ -1012,7 +1019,7 @@ function GraphTab({ graph }: { graph: KnowledgeGraph | null }) {
   );
 }
 
-function ReportTab({ report, isActive }: { report: Report | null; isActive: boolean }) {
+export function ReportTab({ report, isActive }: { report: Report | null; isActive: boolean }) {
   if (!report?.markdown)
     return (
       <Card>
@@ -1025,6 +1032,16 @@ function ReportTab({ report, isActive }: { report: Report | null; isActive: bool
     );
   return (
     <>
+      {report.meta?.evidence_incomplete && (
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <span aria-hidden>⚠️</span>
+          <span>
+            <strong>Research incomplete — no evidence was collected.</strong> No usable sources
+            were retrieved for this run, so this report reflects the research plan only and is{" "}
+            <strong>not an evidence-backed conclusion</strong>. See Research Health for why.
+          </span>
+        </div>
+      )}
       {report.meta && (
         <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
           <MetaStat label="Confidence" value={`${report.meta.overall_confidence}%`} />
