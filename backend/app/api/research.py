@@ -58,6 +58,7 @@ from app.services import audit
 from app.services import research_diff
 from app.services.events import bus
 from app.services.research_service import manager
+from app.orchestration.orchestrator import reset_project_for_retry
 
 router = APIRouter(prefix="/research", tags=["research"])
 
@@ -340,6 +341,39 @@ async def start_research(
     await audit.record("research.start", project_id=project_id, user_id=user.id,
                        request=request)
     return MessageOut(message="Research started")
+
+
+@router.post("/{project_id}/retry", response_model=ProjectDetail)
+async def retry_research(
+    project_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Retry a FAILED run IN PLACE — restart the SAME project after the user fixed the
+    underlying dependency (e.g. Ollama was down). This is distinct from Research Again,
+    which forks a new run from a COMPLETED one. Only FAILED runs are retryable; RUNNING
+    and COMPLETED are rejected. The reset preserves the original failure in the run's
+    history and clears only transient collection state so nothing is duplicated.
+    Concurrent retries are rejected (the reset atomically flips FAILED→PLANNING under a
+    lock, so only the first request proceeds)."""
+    proj = await _get_project(db, project_id, user)
+    if manager.is_active(project_id):
+        raise HTTPException(409, "Research is already running")
+    if proj.status != ProjectStatus.FAILED:
+        raise HTTPException(409, "Only failed research can be retried")
+
+    # Atomically reset transient state + guard against a concurrent retry. Returns False
+    # if another request already moved this run out of FAILED (lost the race).
+    if not await reset_project_for_retry(project_id):
+        raise HTTPException(409, "Research is already running")
+    if not manager.start(project_id):  # defensive: a runner appeared between reset & start
+        raise HTTPException(409, "Research is already running")
+
+    await audit.record("research.retry", project_id=project_id, user_id=user.id,
+                       request=request)
+    await db.refresh(proj)
+    return proj
 
 
 @router.post("/{project_id}/pause", response_model=MessageOut)

@@ -98,6 +98,9 @@ export const api = {
   listResearch: () => req<ProjectSummary[]>("/research"),
   getResearch: (id: string) => req<ProjectDetail>(`/research/${id}`),
   start: (id: string) => req(`/research/${id}/start`, { method: "POST" }),
+  // Retry a FAILED run in place (same project) after fixing the dependency — not
+  // Research Again (which forks a completed run). Returns the re-started project.
+  retry: (id: string) => req<ProjectDetail>(`/research/${id}/retry`, { method: "POST" }),
   pause: (id: string) => req(`/research/${id}/pause`, { method: "POST" }),
   resume: (id: string) => req(`/research/${id}/resume`, { method: "POST" }),
   stop: (id: string) => req(`/research/${id}/stop`, { method: "POST" }),

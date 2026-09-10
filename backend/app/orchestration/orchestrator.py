@@ -372,6 +372,67 @@ async def run_research(project_id: str, control: RunControl) -> None:
         )
 
 
+# Transient rows a run appends that would be DUPLICATED if run_research ran again on the
+# same project (sources/findings/questions/gaps/tasks are append-only; claims/conflicts/
+# solutions/recommendations are delete-first in the pipeline but cleared here too so a
+# re-run that fails early can't leave stale analysis behind). ClaimSource has no
+# project_id, so it is deleted via its claim ids first.
+_RETRY_RESET_MODELS = (
+    Claim, Conflict, Recommendation, Solution, Finding, Source,
+    KnowledgeGap, ResearchTask, ResearchQuestion,
+)
+
+
+async def reset_project_for_retry(project_id: str) -> bool:
+    """Reset a FAILED run's transient execution state so it can be retried IN PLACE.
+
+    Retry restarts the SAME project — it is not Research Again (which forks a new run
+    from a COMPLETED one). ``run_research`` assumes a fresh project and never resets, and
+    some collection rows are append-only (so a naive re-run would duplicate them and the
+    task-budget cap could starve the retry). This clears exactly that transient state
+    under ``_db_lock``, PRESERVES the original failure in ``report_meta["retry_history"]``
+    (never silently erased), and flips the run to PLANNING so the UI treats it as active
+    immediately (``run_research`` sets PLANNING again — idempotent).
+
+    Returns ``False`` if the project is missing or no longer FAILED (e.g. a concurrent
+    retry won the race), so the caller can reject the duplicate without starting a run.
+    """
+    async with _db_lock, SessionLocal() as db:
+        proj = await db.get(ResearchProject, project_id)
+        if proj is None or proj.status != ProjectStatus.FAILED:
+            return False
+
+        # Preserve the failure before clearing it (spec: do not silently erase).
+        meta = dict(proj.report_meta or {})
+        history = list(meta.get("retry_history") or [])
+        history.append({
+            "error": proj.error,
+            "stage": proj.current_stage,
+            "retried_at": datetime.now(timezone.utc).isoformat(),
+        })
+        meta["retry_history"] = history
+        proj.report_meta = meta
+
+        # Delete claim evidence links first (no project_id → key off the project's claims).
+        claim_ids = (
+            await db.execute(select(Claim.id).where(Claim.project_id == project_id))
+        ).scalars().all()
+        if claim_ids:
+            await db.execute(
+                sa_delete(ClaimSource).where(ClaimSource.claim_id.in_(claim_ids))
+            )
+        for model in _RETRY_RESET_MODELS:
+            await db.execute(sa_delete(model).where(model.project_id == project_id))
+
+        proj.status = ProjectStatus.PLANNING
+        proj.error = None
+        proj.progress = 0
+        proj.current_stage = "Retrying"
+        proj.report_markdown = None
+        await db.commit()
+    return True
+
+
 # --------------------------------------------------------------------------- #
 # Stage helpers
 # --------------------------------------------------------------------------- #
@@ -1374,6 +1435,12 @@ async def _build_report(project_id, provider, source_health: dict | None = None)
 
     async with _db_lock, SessionLocal() as db:
         proj = await db.get(ResearchProject, project_id)
+        # Carry any prior-failure history forward: report_meta is fully rebuilt here, so
+        # a retry that ultimately succeeds would otherwise lose the record of the failed
+        # attempt(s) (spec: never silently erase the original failure).
+        prior_history = (proj.report_meta or {}).get("retry_history")
+        if prior_history:
+            meta["retry_history"] = prior_history
         proj.report_markdown = report_md
         proj.report_meta = meta
         await db.commit()

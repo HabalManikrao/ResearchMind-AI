@@ -86,6 +86,8 @@ export default function LiveResearch() {
   const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
   const [graph, setGraph] = useState<KnowledgeGraph | null>(null);
   const [report, setReport] = useState<Report | null>(null);
+  const [retrying, setRetrying] = useState(false);
+  const [retryErr, setRetryErr] = useState<string | null>(null);
 
   const isActive = project ? ACTIVE.includes(project.status) : false;
   const { events, progress, stage, finished } = useEventStream(id, isActive);
@@ -162,6 +164,25 @@ export default function LiveResearch() {
     await loadProject();
   };
 
+  // Retry a FAILED run in place. The backend resets transient state and restarts the
+  // same project (returning it as PLANNING), so setting it here flips isActive → true
+  // and the existing polling + SSE resume automatically. Guarded so a double-click can't
+  // fire two retries.
+  const retry = async () => {
+    if (!id || retrying) return;
+    setRetrying(true);
+    setRetryErr(null);
+    try {
+      const restarted = await api.retry(id);
+      setProject(restarted);
+      setTab("activity");
+    } catch (e) {
+      setRetryErr(e instanceof Error ? e.message : "Retry failed");
+    } finally {
+      setRetrying(false);
+    }
+  };
+
   if (!project) return <p className="text-slate-500">Loading…</p>;
 
   const displayProgress = isActive ? Math.max(progress, project.progress) : project.progress;
@@ -214,6 +235,14 @@ export default function LiveResearch() {
         <ProgressBar value={displayProgress} />
         {project.error && <p className="mt-3 text-sm text-red-600">Error: {project.error}</p>}
       </Card>
+
+      <FailedResearchCard
+        status={project.status}
+        error={project.error}
+        retrying={retrying}
+        retryErr={retryErr}
+        onRetry={retry}
+      />
 
       <LineageBar
         project={project}
@@ -1015,6 +1044,50 @@ function GraphTab({ graph }: { graph: KnowledgeGraph | null }) {
         How this project's topic, solutions, recommendation, claims, and sources relate.
       </p>
       <KnowledgeGraphView graph={graph} />
+    </Card>
+  );
+}
+
+// Failure card with the Retry action. Rendered only for a FAILED run (returns null
+// otherwise, so it is never shown for completed/running research). Retry restarts the
+// SAME project — distinct from "Research Again" (which forks a completed run).
+export function FailedResearchCard({
+  status,
+  error,
+  retrying,
+  retryErr,
+  onRetry,
+}: {
+  status: ProjectDetail["status"];
+  error: string | null;
+  retrying: boolean;
+  retryErr: string | null;
+  onRetry: () => void;
+}) {
+  if (status !== "failed") return null;
+  return (
+    <Card>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold text-red-700">Research Failed</h2>
+          <p className="mt-1 text-sm text-slate-700">
+            {error || "The research run stopped before completing."}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Fix the underlying issue (e.g. make sure Ollama is running), then retry. This
+            restarts the same research; the original run is kept in its history.
+          </p>
+          {retryErr && <p className="mt-2 text-sm text-red-600">{retryErr}</p>}
+        </div>
+        <button
+          onClick={onRetry}
+          disabled={retrying}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <RefreshCw className={`h-4 w-4 ${retrying ? "animate-spin" : ""}`} />
+          {retrying ? "Retrying…" : "Retry Research"}
+        </button>
+      </div>
     </Card>
   );
 }
