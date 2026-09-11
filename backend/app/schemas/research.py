@@ -9,7 +9,11 @@ from app.models.enums import (
     ClaimStatus,
     ConflictSeverity,
     ConflictStatus,
+    CONSTRAINT_TYPE_PATTERN,
+    OBJECTIVE_STATUS_PATTERN,
     ProjectStatus,
+    QUESTION_CATEGORY_PATTERN,
+    QUESTION_STATUS_PATTERN,
     ResearchMode,
     TaskStatus,
 )
@@ -102,6 +106,123 @@ class QuestionOut(ORMModel):
     priority: int
     is_followup: bool
     answered: bool
+    # R&D layer (Phase A) — first-class question fields (nullable for legacy rows).
+    category: str | None = None
+    q_status: str | None = None
+    answer: str | None = None
+    answer_confidence: float | None = None
+
+
+class QuestionUpdate(BaseModel):
+    """Partial update of a question's R&D fields. Any omitted field is left unchanged."""
+
+    text: str | None = Field(default=None, min_length=3)
+    priority: int | None = Field(default=None, ge=1, le=5)
+    category: str | None = Field(default=None, pattern=QUESTION_CATEGORY_PATTERN)
+    q_status: str | None = Field(default=None, pattern=QUESTION_STATUS_PATTERN)
+    answer: str | None = None
+    answer_confidence: float | None = Field(default=None, ge=0, le=100)
+    answered: bool | None = None
+
+
+# --------------------------------------------------------------------------- #
+# R&D layer Phase A — Brief / Objectives / Constraints / Terminology.
+# --------------------------------------------------------------------------- #
+class ResearchBriefOut(ORMModel):
+    id: str
+    project_id: str
+    problem_statement: str
+    background: str
+    expected_outcome: str
+    scope_included: list
+    scope_excluded: list
+    assumptions: list
+    target_users: list
+    success_criteria: list
+    version: int
+
+
+class ResearchBriefUpdate(BaseModel):
+    """Upsert the brief. Omitted fields are left unchanged; the version bumps on write."""
+
+    problem_statement: str | None = None
+    background: str | None = None
+    expected_outcome: str | None = None
+    scope_included: list[str] | None = None
+    scope_excluded: list[str] | None = None
+    assumptions: list[str] | None = None
+    target_users: list[str] | None = None
+    success_criteria: list[str] | None = None
+
+
+class ObjectiveOut(ORMModel):
+    id: str
+    description: str
+    priority: int
+    status: str
+    completion_pct: int
+    question_ids: list
+    notes: str
+
+
+class ObjectiveCreate(BaseModel):
+    description: str = Field(min_length=3)
+    priority: int = Field(default=3, ge=1, le=5)
+    status: str = Field(default="not_started", pattern=OBJECTIVE_STATUS_PATTERN)
+    completion_pct: int = Field(default=0, ge=0, le=100)
+    question_ids: list[str] = Field(default_factory=list)
+    notes: str = ""
+
+
+class ObjectiveUpdate(BaseModel):
+    description: str | None = Field(default=None, min_length=3)
+    priority: int | None = Field(default=None, ge=1, le=5)
+    status: str | None = Field(default=None, pattern=OBJECTIVE_STATUS_PATTERN)
+    completion_pct: int | None = Field(default=None, ge=0, le=100)
+    question_ids: list[str] | None = None
+    notes: str | None = None
+
+
+class ConstraintOut(ORMModel):
+    id: str
+    ctype: str
+    text: str
+
+
+class ConstraintCreate(BaseModel):
+    ctype: str = Field(default="other", pattern=CONSTRAINT_TYPE_PATTERN)
+    text: str = Field(min_length=1)
+
+
+class TerminologyOut(ORMModel):
+    id: str
+    term: str
+    definition: str
+    synonyms: list
+    acronyms: list
+    related: list
+    source_id: str | None = None
+    confidence: float | None = None
+
+
+class TerminologyCreate(BaseModel):
+    term: str = Field(min_length=1)
+    definition: str = ""
+    synonyms: list[str] = Field(default_factory=list)
+    acronyms: list[str] = Field(default_factory=list)
+    related: list[str] = Field(default_factory=list)
+    source_id: str | None = None
+    confidence: float | None = Field(default=None, ge=0, le=100)
+
+
+class TerminologyUpdate(BaseModel):
+    term: str | None = Field(default=None, min_length=1)
+    definition: str | None = None
+    synonyms: list[str] | None = None
+    acronyms: list[str] | None = None
+    related: list[str] | None = None
+    source_id: str | None = None
+    confidence: float | None = Field(default=None, ge=0, le=100)
 
 
 class TaskOut(ORMModel):

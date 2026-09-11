@@ -44,6 +44,7 @@ from app.schemas.research import (
     ProjectSummary,
     QuestionCreate,
     QuestionOut,
+    QuestionUpdate,
     RecommendationOut,
     ReportOut,
     ResearchAgainRequest,
@@ -445,6 +446,27 @@ async def add_question(
     await _get_project(db, project_id, user)
     q = ResearchQuestion(project_id=project_id, text=body.text, priority=body.priority)
     db.add(q)
+    await db.commit()
+    await db.refresh(q)
+    return q
+
+
+@router.patch("/{project_id}/questions/{question_id}", response_model=QuestionOut)
+async def update_question(
+    project_id: str,
+    question_id: str,
+    body: QuestionUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Update a question's R&D fields (category/status/answer/confidence) — R&D Phase A.
+    Ownership-scoped; the question must belong to the project (404 otherwise)."""
+    await _get_project(db, project_id, user)
+    q = await db.get(ResearchQuestion, question_id)
+    if q is None or q.project_id != project_id:
+        raise HTTPException(404, "Question not found")
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(q, field, value)
     await db.commit()
     await db.refresh(q)
     return q

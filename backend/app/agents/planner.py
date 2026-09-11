@@ -130,16 +130,20 @@ async def make_plan(
     as_of: str | None = None,
     prior_context: "PriorContext | None" = None,
     intent: str = "original",
+    brief_context: str | None = None,
 ) -> ResearchPlan:
     constraint_str = ""
     if constraints:
         constraint_str = "\nUser constraints/preferences:\n" + "\n".join(
             f"- {k}: {v}" for k, v in constraints.items() if v
         )
+    # R&D layer (Phase A): the structured research brief (problem/scope/constraints/
+    # objectives) steers planning deterministically — assembled by the caller, no extra LLM.
+    brief_str = f"\n{brief_context}" if brief_context else ""
     date_str = f"\nToday's date is {as_of}." if as_of else ""
     prior_str = prior_context.as_prompt() if prior_context else ""
     prompt = (
-        f"Research request:\n{query}\n{constraint_str}{date_str}{prior_str}\n\n"
+        f"Research request:\n{query}\n{constraint_str}{brief_str}{date_str}{prior_str}\n\n"
         f"Produce a research objective and up to {max_questions} research questions "
         "that cover this request. Return JSON matching the schema."
     )

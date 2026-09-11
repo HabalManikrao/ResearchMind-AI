@@ -98,7 +98,8 @@ async def test_continuation_feeds_prior_context_to_planner(client, patch_pipelin
     captured = {}
 
     async def spy_make_plan(provider, query, *, constraints=None, max_questions=8,
-                            market=False, as_of=None, prior_context=None, intent="original"):
+                            market=False, as_of=None, prior_context=None, intent="original",
+                            brief_context=None):
         captured["prior_context"] = prior_context
         captured["intent"] = intent
         return ResearchPlan(objective="obj", questions=[PlannedQuestion("Q1?", 1, "q1")])

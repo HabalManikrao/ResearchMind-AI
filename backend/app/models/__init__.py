@@ -9,6 +9,7 @@ from app.models.enums import (
     ResearchMode,
     TaskStatus,
 )
+from app.models.brief import Constraint, Objective, ResearchBrief, Terminology
 from app.models.cache import CachedSource
 from app.models.document import Document, DocumentChunk
 from app.models.graph import KgClaimLink, KgEntity, KgMention, KgRelationship
@@ -45,9 +46,13 @@ __all__ = [
     "Claim",
     "ClaimSource",
     "Conflict",
+    "Constraint",
     "Document",
     "DocumentChunk",
     "Finding",
+    "Objective",
+    "ResearchBrief",
+    "Terminology",
     "KgClaimLink",
     "KgEntity",
     "KgMention",

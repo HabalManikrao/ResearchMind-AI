@@ -86,6 +86,38 @@ class SourcePolicy(str, enum.Enum):
     LOCAL_ONLY = "local_only"
 
 
+# --------------------------------------------------------------------------- #
+# R&D Engineering Laboratory layer (Phase A). These are validated *string sets*
+# (not Enum columns) so new members need no migration — same philosophy as the
+# knowledge-graph registries. Schemas validate against them; columns store plain
+# strings. A `|`-joined pattern for each is exposed for Pydantic `pattern=`.
+# --------------------------------------------------------------------------- #
+QUESTION_CATEGORIES = (
+    "primary", "secondary", "technical", "comparison", "feasibility",
+    "performance", "cost", "risk", "implementation", "validation", "general",
+)
+QUESTION_STATUSES = (
+    "unanswered", "partially_answered", "answered", "contradicted", "inconclusive",
+)
+OBJECTIVE_STATUSES = (
+    "not_started", "in_progress", "achieved", "blocked", "abandoned",
+)
+CONSTRAINT_TYPES = (
+    "technical", "time", "dataset", "hardware", "regulatory",
+    "geographic", "budget", "scope", "other",
+)
+
+
+def _pattern(values: tuple[str, ...]) -> str:
+    return "^(" + "|".join(values) + ")$"
+
+
+QUESTION_CATEGORY_PATTERN = _pattern(QUESTION_CATEGORIES)
+QUESTION_STATUS_PATTERN = _pattern(QUESTION_STATUSES)
+OBJECTIVE_STATUS_PATTERN = _pattern(OBJECTIVE_STATUSES)
+CONSTRAINT_TYPE_PATTERN = _pattern(CONSTRAINT_TYPES)
+
+
 class EvidenceStance(str, enum.Enum):
     """How a source relates to a claim in the evidence graph (spec §6).
 

@@ -4,6 +4,7 @@ import type {
   ClaimEvidenceResponse,
   Connectivity,
   Conflict,
+  Constraint,
   CreateResearch,
   DocumentItem,
   DocumentPassage,
@@ -15,12 +16,15 @@ import type {
   KnowledgeStatus,
   MonitoringStats,
   Notification,
+  Objective,
   ProjectDetail,
   ProjectSummary,
   Question,
   Recommendation,
   Report,
   ResearchAgainRequest,
+  ResearchBrief,
+  ResearchBriefUpdate,
   ResearchDiff,
   RunSummary,
   MemoryResponse,
@@ -29,6 +33,7 @@ import type {
   Solution,
   Source,
   Task,
+  Terminology,
   User,
 } from "./types";
 
@@ -110,6 +115,39 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ text, priority }),
     }),
+  updateQuestion: (id: string, qid: string, patch: Partial<Question>) =>
+    req<Question>(`/research/${id}/questions/${qid}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+
+  // --- R&D layer Phase A: Brief / Objectives / Constraints / Terminology --- //
+  brief: (id: string) => req<ResearchBrief>(`/research/${id}/brief`),
+  updateBrief: (id: string, patch: ResearchBriefUpdate) =>
+    req<ResearchBrief>(`/research/${id}/brief`, {
+      method: "PUT",
+      body: JSON.stringify(patch),
+    }),
+  objectives: (id: string) => req<Objective[]>(`/research/${id}/objectives`),
+  createObjective: (id: string, body: Partial<Objective>) =>
+    req<Objective>(`/research/${id}/objectives`, { method: "POST", body: JSON.stringify(body) }),
+  updateObjective: (id: string, oid: string, patch: Partial<Objective>) =>
+    req<Objective>(`/research/${id}/objectives/${oid}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+  deleteObjective: (id: string, oid: string) =>
+    req<void>(`/research/${id}/objectives/${oid}`, { method: "DELETE" }),
+  constraints: (id: string) => req<Constraint[]>(`/research/${id}/constraints`),
+  createConstraint: (id: string, body: { ctype: string; text: string }) =>
+    req<Constraint>(`/research/${id}/constraints`, { method: "POST", body: JSON.stringify(body) }),
+  deleteConstraint: (id: string, cid: string) =>
+    req<void>(`/research/${id}/constraints/${cid}`, { method: "DELETE" }),
+  terminology: (id: string) => req<Terminology[]>(`/research/${id}/terminology`),
+  createTerm: (id: string, body: Partial<Terminology>) =>
+    req<Terminology>(`/research/${id}/terminology`, { method: "POST", body: JSON.stringify(body) }),
+  deleteTerm: (id: string, tid: string) =>
+    req<void>(`/research/${id}/terminology/${tid}`, { method: "DELETE" }),
   tasks: (id: string) => req<Task[]>(`/research/${id}/tasks`),
   sources: (id: string) => req<Source[]>(`/research/${id}/sources`),
   claims: (id: string) => req<Claim[]>(`/research/${id}/claims`),

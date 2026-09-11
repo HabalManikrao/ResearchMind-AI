@@ -40,6 +40,7 @@ import {
 } from "../components/ui";
 import KnowledgeGraphView from "../components/KnowledgeGraphView";
 import DocumentsPanel from "../components/DocumentsPanel";
+import BriefPanel from "../components/BriefPanel";
 import type {
   KnowledgeGraph,
   SourceHealth,
@@ -59,6 +60,7 @@ import {
 
 type Tab =
   | "activity"
+  | "brief"
   | "plan"
   | "sources"
   | "documents"
@@ -189,6 +191,7 @@ export default function LiveResearch() {
 
   const TABS: { key: Tab; label: string; count?: number }[] = [
     { key: "activity", label: "Activity" },
+    { key: "brief", label: "Brief" },
     { key: "plan", label: "Plan", count: questions.length },
     { key: "sources", label: "Sources", count: sources.length },
     { key: "documents", label: "Documents" },
@@ -277,6 +280,7 @@ export default function LiveResearch() {
       </div>
 
       {tab === "activity" && <ActivityTab events={events} project={project} />}
+      {tab === "brief" && <BriefPanel projectId={id!} />}
       {tab === "plan" && <PlanTab questions={questions} gaps={gaps} />}
       {tab === "sources" && <SourcesTab sources={sources} />}
       {tab === "documents" && <DocumentsPanel projectId={id!} />}

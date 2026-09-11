@@ -18,6 +18,7 @@ from app.api import (
     monitors,
     notifications,
     research,
+    rnd,
     schedules,
     system,
     v1,
@@ -104,6 +105,7 @@ app.add_middleware(
 app.include_router(system.router)
 app.include_router(auth.router)
 app.include_router(research.router)
+app.include_router(rnd.router)  # /research/{id}/{brief,objectives,constraints,terminology} (R&D Phase A)
 app.include_router(monitors.router)  # /research/{id}/monitor (#6)
 app.include_router(documents.router)
 app.include_router(knowledge.router)

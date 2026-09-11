@@ -54,6 +54,15 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
         "dedup_key": "TEXT",
         "data": "TEXT",
     },
+    # R&D layer Phase A: research questions become first-class. All nullable so
+    # pre-Phase-A questions stay valid. New tables (research_briefs/objectives/
+    # constraints/terminology) are created whole by create_all — no ALTER needed.
+    "research_questions": {
+        "category": "TEXT",
+        "q_status": "TEXT",
+        "answer": "TEXT",
+        "answer_confidence": "FLOAT",
+    },
 }
 
 

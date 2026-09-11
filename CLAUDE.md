@@ -356,6 +356,31 @@ verify benchmark isolation (a live run mutates no fixture; deterministic suites 
 provenance no-false-live under mocked failure/fallback, the metrics, and no-secret-leakage. Docs:
 `docs/LIVE-WEB-RESEARCH-EVALUATION-{PLAN,REPORT}.md`.
 
+### R&D Engineering Laboratory Layer (in progress): additive first-class research objects
+Evolving ResearchMind into a professional R&D laboratory notebook by adding the missing structured
+research objects **on top of** the existing substrate (no rewrite; evidence/claims/verification/
+diff/again/monitoring/KG/provenance/report reused as-is). The authoritative audit + phased plan are
+`docs/RND-REQUIREMENTS-GAP-AUDIT.md` (requirement→code matrix, baseline ≈40%) and
+`docs/RND-IMPLEMENTATION-PLAN.md` (phases A–H, additive-only, deterministic/offline-first). Design
+rules: new tables via `create_all` + nullable cols via `_ensure_columns` (never destructive); every
+table carries `project_id`; ownership via `_get_project` (404-no-leak); no new mandatory LLM calls;
+new KG types go in the extensible `knowledge/registry.py` (migration-free).
+- **Phase A (done): research front matter.** `models/brief.py` — `ResearchBrief` (1:1 per project,
+  structured problem/background/scope-in/scope-out/assumptions/target-users/success-criteria,
+  **version-aware** — bumps on edit), `Objective` (priority/status/completion%/question links),
+  `Constraint` (typed: technical/time/dataset/hardware/regulatory/…), `Terminology` (term/definition/
+  synonyms/acronyms/related; **ambiguity preserved — never auto-merged by name**). `ResearchQuestion`
+  gained first-class nullable fields (`category`, `q_status`, `answer`, `answer_confidence`) via
+  `_ADDED_COLUMNS`. Status/type fields are validated **string sets** in `enums.py` (patterns), not
+  Enum columns, so new members need no migration. API `app/api/rnd.py` (mounted under `/research`):
+  `GET/PUT .../brief`, CRUD `.../objectives`, `.../constraints`, `.../terminology`, plus
+  `PATCH /research/{id}/questions/{qid}` in `research.py`. The brief steers planning deterministically
+  via `orchestrator._build_brief_context` → `planner.make_plan(brief_context=...)` (zero extra LLM;
+  None when no brief exists, so existing runs are unaffected). Frontend: a **Brief tab**
+  (`components/BriefPanel.tsx`) editing brief + objectives + constraints + terminology; `Question`
+  type + `api` client methods extended. Tests: `test_rnd_phase_a.py` (CRUD, validation, version bump,
+  planner wiring, cross-user 404, auth) + frontend `BriefPanel.test.tsx`.
+
 ### Report is assembled deterministically from structured data
 The report LLM writes ONLY interpretive prose (Executive Summary / Key Findings / Detailed Analysis /
 Knowledge Gaps). Everything decision-bearing is injected from stored rows so it stays evidence-
@@ -449,7 +474,7 @@ mark-read/read-all/delete). **Frontend:** `pages/Scheduled.tsx`, `pages/Notifica
 Not yet built (remaining Phase 7): the **Postgres/Redis** swap (SQLite → Postgres, in-process SSE bus →
 Redis pub/sub, in-process scheduler → Redis/Celery beat — all already behind seams). `net.validate_url`
 exists as the SSRF control for any new outbound-fetch path — route new fetches through it. A pytest suite
-(`backend/tests/`, 363 tests) covers units, API, middleware, auth + access control, schedules,
+(`backend/tests/`, 374 tests) covers units, API, middleware, auth + access control, schedules,
 notifications, the evidence engine (freshness, scoring, contradiction agent, evidence API),
 Document RAG (parsing, chunking, upload security, service, documents API, offline+hybrid pipeline),
 research memory/again/diff (diff engine, lineage, immutability, carry-forward, migration),
@@ -465,7 +490,7 @@ equivalence, cross-user + no-dangerous-tool security), production hardening (`te
 pagination-bounds regression, offline-suite guard, embedding/graph failure injection, DB integrity,
 CPU/Ollama Stage-1-no-LLM budget, full-lifecycle + REST/MCP external E2E) and the **research-quality
 benchmark** (`test_benchmark.py` asserts the benchmark's thresholds so quality can't silently regress),
-and the full faked pipeline — run it before and after changes (see Commands). The **frontend** now also has a Vitest suite (`frontend/`, `npm test`, 58
+and the full faked pipeline — run it before and after changes (see Commands). The **frontend** now also has a Vitest suite (`frontend/`, `npm test`, 61
 tests: evidence + provenance + monitoring + knowledge-graph mapping, `ClaimsTab` + `DocumentsPanel` DOM
 behavior, RunDiff + History lineage + LineageBar, Research Health banner, MonitorCheckRow drill-down,
 EntityDetail, Integrations).
@@ -569,7 +594,7 @@ cp .env.example .env                                       # set TAVILY_API_KEY,
   `TAVILY_API_KEY` or a running SearXNG; papers = arXiv). Writes `evaluation/live_web/results/`
   (git-ignored). Its **offline** guarantees (isolation/provenance/failure/metrics/security) are asserted
   by `tests/test_live_web_eval.py`.
-- **Tests:** `pip install -r requirements-dev.txt` then `.venv/Scripts/python -m pytest` (363 tests,
+- **Tests:** `pip install -r requirements-dev.txt` then `.venv/Scripts/python -m pytest` (374 tests,
   ~135s, all offline). Config in `pytest.ini` (`asyncio_mode=auto`). `tests/conftest.py` binds an
   isolated temp SQLite DB + Qdrant path via env before app import (incl. `AUTH_ENABLED=true` +
   `JWT_SECRET`), and provides fixtures: `client` (ASGI, **auto-registers a user and attaches its bearer

@@ -136,6 +136,13 @@ class ResearchQuestion(Base, TimestampMixin):
     priority: Mapped[int] = mapped_column(Integer, default=3)  # 1 (high) - 5 (low)
     is_followup: Mapped[bool] = mapped_column(default=False)
     answered: Mapped[bool] = mapped_column(default=False)
+    # R&D layer (Phase A): make questions first-class. Extensible string fields (validated
+    # at the schema layer, not enum columns) so new categories/states need no migration.
+    # All nullable so pre-Phase-A questions stay valid.
+    category: Mapped[str | None] = mapped_column(String(30), nullable=True)  # primary|technical|...
+    q_status: Mapped[str | None] = mapped_column(String(30), nullable=True)  # unanswered|answered|...
+    answer: Mapped[str | None] = mapped_column(Text, nullable=True)
+    answer_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)  # 0-100
 
     project: Mapped[ResearchProject] = relationship(back_populates="questions")
 

@@ -148,9 +148,10 @@ async def run_research(project_id: str, control: RunControl) -> None:
                 )
 
         # --- Plan -------------------------------------------------------------
+        brief_context = await _build_brief_context(project_id)  # R&D Phase A (deterministic)
         plan = await planner.make_plan(
             provider, query, constraints=constraints, market=is_market, as_of=as_of,
-            prior_context=prior_context, intent=run_intent,
+            prior_context=prior_context, intent=run_intent, brief_context=brief_context,
         )
         async with _db_lock, SessionLocal() as db:
             proj = await db.get(ResearchProject, project_id)
@@ -904,6 +905,43 @@ async def _update_knowledge_graph(project_id: str, parent_id: str | None) -> Non
             "Knowledge graph update degraded — research is unaffected, retry available",
             agent="knowledge_graph", degraded=True,
         )
+
+
+async def _build_brief_context(project_id: str) -> str | None:
+    """Assemble the structured research brief + typed constraints into a compact planner
+    hint (R&D Phase A, spec §6/§9). Deterministic string assembly — zero extra LLM calls.
+    Returns None when no brief content exists, so runs without a brief are unaffected."""
+    from app.models import Constraint, ResearchBrief
+
+    async with SessionLocal() as db:
+        brief = (
+            await db.execute(select(ResearchBrief).where(ResearchBrief.project_id == project_id))
+        ).scalars().first()
+        constraints = (
+            await db.execute(select(Constraint).where(Constraint.project_id == project_id))
+        ).scalars().all()
+
+    parts: list[str] = []
+    if brief:
+        if brief.problem_statement:
+            parts.append(f"Problem statement: {brief.problem_statement}")
+        if brief.background:
+            parts.append(f"Background: {brief.background}")
+        if brief.expected_outcome:
+            parts.append(f"Expected outcome: {brief.expected_outcome}")
+        if brief.scope_included:
+            parts.append("In scope: " + "; ".join(str(x) for x in brief.scope_included))
+        if brief.scope_excluded:
+            parts.append("Out of scope (do NOT research): "
+                         + "; ".join(str(x) for x in brief.scope_excluded))
+        if brief.success_criteria:
+            parts.append("Success criteria: " + "; ".join(str(x) for x in brief.success_criteria))
+    if constraints:
+        parts.append("Constraints: "
+                     + "; ".join(f"[{c.ctype}] {c.text}" for c in constraints))
+    if not parts:
+        return None
+    return "=== Research brief (honour scope + constraints) ===\n" + "\n".join(parts)
 
 
 async def _build_prior_context(parent_id: str):

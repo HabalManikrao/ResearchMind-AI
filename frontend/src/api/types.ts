@@ -68,6 +68,57 @@ export interface Question {
   priority: number;
   is_followup: boolean;
   answered: boolean;
+  // R&D layer (Phase A) — first-class question fields.
+  category?: string | null;
+  q_status?: string | null;
+  answer?: string | null;
+  answer_confidence?: number | null;
+}
+
+// --- R&D layer Phase A: Brief / Objectives / Constraints / Terminology --- //
+export interface ResearchBrief {
+  id: string;
+  project_id: string;
+  problem_statement: string;
+  background: string;
+  expected_outcome: string;
+  scope_included: string[];
+  scope_excluded: string[];
+  assumptions: string[];
+  target_users: string[];
+  success_criteria: string[];
+  version: number;
+}
+
+export type ResearchBriefUpdate = Partial<
+  Omit<ResearchBrief, "id" | "project_id" | "version">
+>;
+
+export interface Objective {
+  id: string;
+  description: string;
+  priority: number;
+  status: string;
+  completion_pct: number;
+  question_ids: string[];
+  notes: string;
+}
+
+export interface Constraint {
+  id: string;
+  ctype: string;
+  text: string;
+}
+
+export interface Terminology {
+  id: string;
+  term: string;
+  definition: string;
+  synonyms: string[];
+  acronyms: string[];
+  related: string[];
+  source_id?: string | null;
+  confidence?: number | null;
 }
 
 export interface Task {
