@@ -21,6 +21,10 @@ ENTITY_TYPES = {
     "event",
     "project",
     "document",
+    # R&D laboratory layer (Phase B+). Vocabulary added migration-free; graph-builder node
+    # emission for these is Phase G (deferred) — adding the types here does not create nodes.
+    "method",
+    "hypothesis",
     "other",
 }
 DEFAULT_ENTITY_TYPE = "other"
@@ -44,6 +48,14 @@ PREDICATES = {
     "acquired_by",
     "acquired",
     "released_by",
+    # R&D laboratory layer (Phase B+) predicates. Vocabulary only; builder wiring is Phase G.
+    "has_method",
+    "has_hypothesis",
+    "addresses",
+    "derived_from",
+    "supported_by",
+    "uses_method",
+    "investigates",
 }
 DEFAULT_PREDICATE = "related_to"
 

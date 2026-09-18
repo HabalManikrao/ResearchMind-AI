@@ -13,10 +13,27 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.research import _get_project
 from app.database import get_db
-from app.models import Constraint, Objective, ResearchBrief, Terminology, User
+from app.models import (
+    Claim,
+    Constraint,
+    Hypothesis,
+    Method,
+    Objective,
+    ResearchBrief,
+    ResearchQuestion,
+    Source,
+    Terminology,
+    User,
+)
 from app.schemas.research import (
     ConstraintCreate,
     ConstraintOut,
+    HypothesisCreate,
+    HypothesisOut,
+    HypothesisUpdate,
+    MethodCreate,
+    MethodOut,
+    MethodUpdate,
     ObjectiveCreate,
     ObjectiveOut,
     ObjectiveUpdate,
@@ -261,5 +278,206 @@ async def delete_terminology(
     user: User = Depends(get_current_user),
 ):
     row = await _get_owned_term(db, project_id, term_id, user)
+    await db.delete(row)
+    await db.commit()
+
+
+# --------------------------------------------------------------------------- #
+# Phase B — Methods & Hypotheses.
+#
+# Relationships are JSON id-lists validated to belong to the SAME project, so a client can never
+# inject another project's (or user's) Source/Claim/Question/Objective/Method id. Referenced ids
+# that don't belong to the project are rejected with 422 (no existence leak beyond "invalid ref").
+# --------------------------------------------------------------------------- #
+async def _validate_refs(db, project_id, model, ids, label) -> None:
+    ids = [i for i in (ids or []) if i]
+    if not ids:
+        return
+    rows = (
+        await db.execute(select(model.id).where(
+            model.id.in_(ids), model.project_id == project_id))
+    ).scalars().all()
+    missing = set(ids) - set(rows)
+    if missing:
+        raise HTTPException(422, f"Unknown or cross-project {label}: {sorted(missing)}")
+
+
+async def _validate_method_ref(db, project_id, method_id) -> None:
+    if method_id is None:
+        return
+    m = await db.get(Method, method_id)
+    if m is None or m.project_id != project_id:
+        raise HTTPException(422, "Unknown or cross-project method_id")
+
+
+async def _validate_object_links(db, project_id, data: dict) -> None:
+    """Validate every relationship id in a create/update payload against this project."""
+    await _validate_refs(db, project_id, Source, data.get("source_ids"), "source_ids")
+    await _validate_refs(db, project_id, Claim, data.get("claim_ids"), "claim_ids")
+    await _validate_refs(db, project_id, ResearchQuestion, data.get("question_ids"), "question_ids")
+    await _validate_refs(db, project_id, Objective, data.get("objective_ids"), "objective_ids")
+    if "method_id" in data:
+        await _validate_method_ref(db, project_id, data.get("method_id"))
+
+
+# --- Methods --------------------------------------------------------------- #
+@router.get("/{project_id}/methods", response_model=list[MethodOut])
+async def list_methods(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await _get_project(db, project_id, user)
+    return (
+        await db.execute(
+            select(Method).where(Method.project_id == project_id).order_by(Method.created_at)
+        )
+    ).scalars().all()
+
+
+@router.post("/{project_id}/methods", response_model=MethodOut, status_code=201)
+async def create_method(
+    project_id: str,
+    body: MethodCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await _get_project(db, project_id, user)
+    data = body.model_dump()
+    await _validate_object_links(db, project_id, data)
+    row = Method(project_id=project_id, **data)
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+async def _get_owned_method(db, project_id, method_id, user) -> Method:
+    await _get_project(db, project_id, user)
+    row = await db.get(Method, method_id)
+    if row is None or row.project_id != project_id:
+        raise HTTPException(404, "Method not found")
+    return row
+
+
+@router.get("/{project_id}/methods/{method_id}", response_model=MethodOut)
+async def get_method(
+    project_id: str,
+    method_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return await _get_owned_method(db, project_id, method_id, user)
+
+
+@router.patch("/{project_id}/methods/{method_id}", response_model=MethodOut)
+async def update_method(
+    project_id: str,
+    method_id: str,
+    body: MethodUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    row = await _get_owned_method(db, project_id, method_id, user)
+    changed = body.model_dump(exclude_unset=True)
+    await _validate_object_links(db, project_id, changed)
+    for field, value in changed.items():
+        setattr(row, field, value)
+    if changed:
+        row.version = (row.version or 1) + 1  # version-aware edit (methodological history)
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+@router.delete("/{project_id}/methods/{method_id}", status_code=204)
+async def delete_method(
+    project_id: str,
+    method_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    row = await _get_owned_method(db, project_id, method_id, user)
+    await db.delete(row)
+    await db.commit()
+
+
+# --- Hypotheses ------------------------------------------------------------ #
+@router.get("/{project_id}/hypotheses", response_model=list[HypothesisOut])
+async def list_hypotheses(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await _get_project(db, project_id, user)
+    return (
+        await db.execute(
+            select(Hypothesis).where(Hypothesis.project_id == project_id)
+            .order_by(Hypothesis.created_at)
+        )
+    ).scalars().all()
+
+
+@router.post("/{project_id}/hypotheses", response_model=HypothesisOut, status_code=201)
+async def create_hypothesis(
+    project_id: str,
+    body: HypothesisCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await _get_project(db, project_id, user)
+    data = body.model_dump()
+    await _validate_object_links(db, project_id, data)
+    row = Hypothesis(project_id=project_id, **data)
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+async def _get_owned_hypothesis(db, project_id, hypothesis_id, user) -> Hypothesis:
+    await _get_project(db, project_id, user)
+    row = await db.get(Hypothesis, hypothesis_id)
+    if row is None or row.project_id != project_id:
+        raise HTTPException(404, "Hypothesis not found")
+    return row
+
+
+@router.get("/{project_id}/hypotheses/{hypothesis_id}", response_model=HypothesisOut)
+async def get_hypothesis(
+    project_id: str,
+    hypothesis_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return await _get_owned_hypothesis(db, project_id, hypothesis_id, user)
+
+
+@router.patch("/{project_id}/hypotheses/{hypothesis_id}", response_model=HypothesisOut)
+async def update_hypothesis(
+    project_id: str,
+    hypothesis_id: str,
+    body: HypothesisUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    row = await _get_owned_hypothesis(db, project_id, hypothesis_id, user)
+    changed = body.model_dump(exclude_unset=True)
+    await _validate_object_links(db, project_id, changed)
+    for field, value in changed.items():
+        setattr(row, field, value)
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+@router.delete("/{project_id}/hypotheses/{hypothesis_id}", status_code=204)
+async def delete_hypothesis(
+    project_id: str,
+    hypothesis_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    row = await _get_owned_hypothesis(db, project_id, hypothesis_id, user)
     await db.delete(row)
     await db.commit()

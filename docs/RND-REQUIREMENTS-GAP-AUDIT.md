@@ -31,6 +31,15 @@ ResearchLog/Checkpoint/Reproducibility/Analysis/Limitation/Comparison/ResearchBr
 
 ---
 
+## Progress log (statuses below are the ORIGINAL baseline; deltas here)
+- **Phase A (commit `1292e59`):** Research Brief → **COMPLETE**; Objectives → **COMPLETE**;
+  Scope/Constraints → **COMPLETE** (structured); Research Questions → **PARTIAL→COMPLETE(core)**
+  (category/status/answer/confidence); Terminology → **COMPLETE**. See `models/brief.py`, `api/rnd.py`.
+- **Phase B (this change):** Methods → **COMPLETE**; Hypotheses → **COMPLETE**. See
+  `models/experiment.py`, `api/rnd.py` (methods/hypotheses), `RND-PHASE-B-AUDIT.md` +
+  `RND-PHASE-B-IMPLEMENTATION-REPORT.md`. KG vocabulary for method/hypothesis added
+  (`knowledge/registry.py`); KG graph-builder emission for them deferred to Phase G.
+
 ## A. Master research components (spec §2, the 28)
 
 | # | Requirement | Status | Where it lives / what's missing |
@@ -46,7 +55,7 @@ ResearchLog/Checkpoint/Reproducibility/Analysis/Limitation/Comparison/ResearchBr
 | 9 | Documents | **COMPLETE** | `Document` + `documents/` pipeline (#3). |
 | 10 | Evidence | **COMPLETE** | `ClaimSource` (stance+passage) + `GET /research/{id}/claims/{cid}/evidence`. |
 | 11 | Claims | **COMPLETE** | `Claim` + `verification` + `confidence_meta` + evidence_state. |
-| 12 | Methods | **MISSING** | No `Method` object (procedure/inputs/outputs/assumptions/limitations/evidence). |
+| 12 | Methods | **COMPLETE** (Phase B) | `Method` (`models/experiment.py`): name/description/procedure/inputs/outputs/assumptions/advantages/disadvantages/limitations/applicability/status/origin/source_ids/claim_ids/version. CRUD `api/rnd.py`; version-aware; ownership + per-project ref validation; tests `test_rnd_phase_b.py`. |
 | 13 | Experiments | **MISSING** | No `Experiment` object or lifecycle. |
 | 14 | Datasets | **MISSING** | No `Dataset` object/versioning. |
 | 15 | Results (structured) | **MISSING** | No `Result` rows (metric/value/unit/conditions/experiment link). `Solution.scores` are qualitative comparison ratings, not measured results. |
@@ -54,7 +63,7 @@ ResearchLog/Checkpoint/Reproducibility/Analysis/Limitation/Comparison/ResearchBr
 | 17 | Conflicts | **COMPLETE** | `Conflict` + `contradiction` agent + CONTRADICTS links. |
 | 18 | Limitations | **MISSING** | No structured `Limitation` (type/severity/affected object/mitigation). Some reasons live inside `confidence_meta`. |
 | 19 | Research Gaps | **PARTIAL** | `KnowledgeGap` (`question, reason, followup_query, round, resolved`). Missing importance/impact/missing-evidence/related links/status. |
-| 20 | Hypotheses | **MISSING** | No `Hypothesis` object or status lifecycle. |
+| 20 | Hypotheses | **COMPLETE** (Phase B) | `Hypothesis` (`models/experiment.py`): statement/reasoning/status(proposed…inconclusive)/confidence/origin + links to questions/objectives/claims/sources + optional method_id + variables/expected_result. Distinct from `Claim`; never auto-advances. CRUD `api/rnd.py`; tests `test_rnd_phase_b.py`. |
 | 21 | Analysis | **PARTIAL** | `rd_analysis` yields `Solution`/`Recommendation`. Missing per-item classification (**FACT/INTERPRETATION/INFERENCE/HYPOTHESIS/OPINION**) tied to evidence. |
 | 22 | Conclusions | **MISSING** | Report has narrative "conclusions" prose, but no first-class `Conclusion` (classification Proven…Disproved, traceability to claims/evidence/experiments/results). |
 | 23 | Recommendations | **PARTIAL** | `Recommendation` (option/rationale/why/confidence/alternatives/risks/poc/roadmap). Single per project; no links to conclusions/experiments/results; no priority; not multi. |

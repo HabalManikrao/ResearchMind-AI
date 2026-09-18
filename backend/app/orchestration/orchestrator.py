@@ -908,10 +908,12 @@ async def _update_knowledge_graph(project_id: str, parent_id: str | None) -> Non
 
 
 async def _build_brief_context(project_id: str) -> str | None:
-    """Assemble the structured research brief + typed constraints into a compact planner
-    hint (R&D Phase A, spec §6/§9). Deterministic string assembly — zero extra LLM calls.
-    Returns None when no brief content exists, so runs without a brief are unaffected."""
-    from app.models import Constraint, ResearchBrief
+    """Assemble the structured research brief + typed constraints (Phase A) plus existing
+    methods/hypotheses (Phase B) into a compact planner hint. Deterministic string assembly —
+    zero extra LLM calls. Returns None when no front-matter content exists, so runs without a
+    brief are unaffected. The planner is only *informed* of existing methods/hypotheses; it never
+    auto-creates them (spec §16)."""
+    from app.models import Constraint, Hypothesis, Method, ResearchBrief
 
     async with SessionLocal() as db:
         brief = (
@@ -919,6 +921,12 @@ async def _build_brief_context(project_id: str) -> str | None:
         ).scalars().first()
         constraints = (
             await db.execute(select(Constraint).where(Constraint.project_id == project_id))
+        ).scalars().all()
+        methods = (
+            await db.execute(select(Method).where(Method.project_id == project_id))
+        ).scalars().all()
+        hypotheses = (
+            await db.execute(select(Hypothesis).where(Hypothesis.project_id == project_id))
         ).scalars().all()
 
     parts: list[str] = []
@@ -939,6 +947,13 @@ async def _build_brief_context(project_id: str) -> str | None:
     if constraints:
         parts.append("Constraints: "
                      + "; ".join(f"[{c.ctype}] {c.text}" for c in constraints))
+    # Phase B: inform (don't drive) planning with methods/hypotheses already on record.
+    if methods:
+        parts.append("Existing methods: "
+                     + "; ".join(f"{m.name} [{m.status}]" for m in methods[:12]))
+    if hypotheses:
+        parts.append("Existing hypotheses (awaiting testing — do not treat as settled): "
+                     + "; ".join(f"{h.statement} [{h.status}]" for h in hypotheses[:12]))
     if not parts:
         return None
     return "=== Research brief (honour scope + constraints) ===\n" + "\n".join(parts)

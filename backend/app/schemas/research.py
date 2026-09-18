@@ -10,10 +10,13 @@ from app.models.enums import (
     ConflictSeverity,
     ConflictStatus,
     CONSTRAINT_TYPE_PATTERN,
+    HYPOTHESIS_STATUS_PATTERN,
+    METHOD_STATUS_PATTERN,
     OBJECTIVE_STATUS_PATTERN,
     ProjectStatus,
     QUESTION_CATEGORY_PATTERN,
     QUESTION_STATUS_PATTERN,
+    RND_ORIGIN_PATTERN,
     ResearchMode,
     TaskStatus,
 )
@@ -223,6 +226,117 @@ class TerminologyUpdate(BaseModel):
     related: list[str] | None = None
     source_id: str | None = None
     confidence: float | None = Field(default=None, ge=0, le=100)
+
+
+# --------------------------------------------------------------------------- #
+# R&D layer Phase B — Methods & Hypotheses.
+# --------------------------------------------------------------------------- #
+class MethodOut(ORMModel):
+    id: str
+    name: str
+    description: str
+    procedure: str
+    inputs: list
+    outputs: list
+    assumptions: list
+    advantages: list
+    disadvantages: list
+    limitations: list
+    applicability: str
+    status: str
+    origin: str
+    source_ids: list
+    claim_ids: list
+    notes: str
+    version: int
+
+
+class MethodCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=500)
+    description: str = ""
+    procedure: str = ""
+    inputs: list[str] = Field(default_factory=list)
+    outputs: list[str] = Field(default_factory=list)
+    assumptions: list[str] = Field(default_factory=list)
+    advantages: list[str] = Field(default_factory=list)
+    disadvantages: list[str] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+    applicability: str = ""
+    status: str = Field(default="proposed", pattern=METHOD_STATUS_PATTERN)
+    origin: str = Field(default="user", pattern=RND_ORIGIN_PATTERN)
+    source_ids: list[str] = Field(default_factory=list)
+    claim_ids: list[str] = Field(default_factory=list)
+    notes: str = ""
+
+
+class MethodUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=500)
+    description: str | None = None
+    procedure: str | None = None
+    inputs: list[str] | None = None
+    outputs: list[str] | None = None
+    assumptions: list[str] | None = None
+    advantages: list[str] | None = None
+    disadvantages: list[str] | None = None
+    limitations: list[str] | None = None
+    applicability: str | None = None
+    status: str | None = Field(default=None, pattern=METHOD_STATUS_PATTERN)
+    origin: str | None = Field(default=None, pattern=RND_ORIGIN_PATTERN)
+    source_ids: list[str] | None = None
+    claim_ids: list[str] | None = None
+    notes: str | None = None
+
+
+class HypothesisOut(ORMModel):
+    id: str
+    statement: str
+    reasoning: str
+    status: str
+    confidence: float | None = None
+    origin: str
+    question_ids: list
+    objective_ids: list
+    claim_ids: list
+    source_ids: list
+    method_id: str | None = None
+    variables: list
+    expected_result: str
+    assumptions: list
+    notes: str
+
+
+class HypothesisCreate(BaseModel):
+    statement: str = Field(min_length=3)
+    reasoning: str = ""
+    status: str = Field(default="proposed", pattern=HYPOTHESIS_STATUS_PATTERN)
+    confidence: float | None = Field(default=None, ge=0, le=100)
+    origin: str = Field(default="user", pattern=RND_ORIGIN_PATTERN)
+    question_ids: list[str] = Field(default_factory=list)
+    objective_ids: list[str] = Field(default_factory=list)
+    claim_ids: list[str] = Field(default_factory=list)
+    source_ids: list[str] = Field(default_factory=list)
+    method_id: str | None = None
+    variables: list[str] = Field(default_factory=list)
+    expected_result: str = ""
+    assumptions: list[str] = Field(default_factory=list)
+    notes: str = ""
+
+
+class HypothesisUpdate(BaseModel):
+    statement: str | None = Field(default=None, min_length=3)
+    reasoning: str | None = None
+    status: str | None = Field(default=None, pattern=HYPOTHESIS_STATUS_PATTERN)
+    confidence: float | None = Field(default=None, ge=0, le=100)
+    origin: str | None = Field(default=None, pattern=RND_ORIGIN_PATTERN)
+    question_ids: list[str] | None = None
+    objective_ids: list[str] | None = None
+    claim_ids: list[str] | None = None
+    source_ids: list[str] | None = None
+    method_id: str | None = None
+    variables: list[str] | None = None
+    expected_result: str | None = None
+    assumptions: list[str] | None = None
+    notes: str | None = None
 
 
 class TaskOut(ORMModel):

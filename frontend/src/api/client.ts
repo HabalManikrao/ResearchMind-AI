@@ -6,6 +6,8 @@ import type {
   Conflict,
   Constraint,
   CreateResearch,
+  Hypothesis,
+  Method,
   DocumentItem,
   DocumentPassage,
   HealthStatus,
@@ -148,6 +150,25 @@ export const api = {
     req<Terminology>(`/research/${id}/terminology`, { method: "POST", body: JSON.stringify(body) }),
   deleteTerm: (id: string, tid: string) =>
     req<void>(`/research/${id}/terminology/${tid}`, { method: "DELETE" }),
+
+  // --- R&D layer Phase B: Methods & Hypotheses --- //
+  methods: (id: string) => req<Method[]>(`/research/${id}/methods`),
+  createMethod: (id: string, body: Partial<Method>) =>
+    req<Method>(`/research/${id}/methods`, { method: "POST", body: JSON.stringify(body) }),
+  updateMethod: (id: string, mid: string, patch: Partial<Method>) =>
+    req<Method>(`/research/${id}/methods/${mid}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deleteMethod: (id: string, mid: string) =>
+    req<void>(`/research/${id}/methods/${mid}`, { method: "DELETE" }),
+  hypotheses: (id: string) => req<Hypothesis[]>(`/research/${id}/hypotheses`),
+  createHypothesis: (id: string, body: Partial<Hypothesis>) =>
+    req<Hypothesis>(`/research/${id}/hypotheses`, { method: "POST", body: JSON.stringify(body) }),
+  updateHypothesis: (id: string, hid: string, patch: Partial<Hypothesis>) =>
+    req<Hypothesis>(`/research/${id}/hypotheses/${hid}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+  deleteHypothesis: (id: string, hid: string) =>
+    req<void>(`/research/${id}/hypotheses/${hid}`, { method: "DELETE" }),
   tasks: (id: string) => req<Task[]>(`/research/${id}/tasks`),
   sources: (id: string) => req<Source[]>(`/research/${id}/sources`),
   claims: (id: string) => req<Claim[]>(`/research/${id}/claims`),

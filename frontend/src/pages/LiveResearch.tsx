@@ -41,6 +41,7 @@ import {
 import KnowledgeGraphView from "../components/KnowledgeGraphView";
 import DocumentsPanel from "../components/DocumentsPanel";
 import BriefPanel from "../components/BriefPanel";
+import LabPanel from "../components/LabPanel";
 import type {
   KnowledgeGraph,
   SourceHealth,
@@ -65,6 +66,7 @@ type Tab =
   | "sources"
   | "documents"
   | "claims"
+  | "lab"
   | "conflicts"
   | "recommendation"
   | "graph"
@@ -196,6 +198,7 @@ export default function LiveResearch() {
     { key: "sources", label: "Sources", count: sources.length },
     { key: "documents", label: "Documents" },
     { key: "claims", label: "Claims", count: claims.length },
+    { key: "lab", label: "Methods & Hypotheses" },
     { key: "conflicts", label: "Conflicts", count: conflicts.length },
     { key: "recommendation", label: "Recommendation" },
     { key: "graph", label: "Graph" },
@@ -285,6 +288,7 @@ export default function LiveResearch() {
       {tab === "sources" && <SourcesTab sources={sources} />}
       {tab === "documents" && <DocumentsPanel projectId={id!} />}
       {tab === "claims" && <ClaimsTab claims={claims} projectId={id!} />}
+      {tab === "lab" && <LabPanel projectId={id!} />}
       {tab === "conflicts" && <ConflictsTab conflicts={conflicts} />}
       {tab === "recommendation" && (
         <RecommendationTab

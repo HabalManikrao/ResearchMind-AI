@@ -55,7 +55,15 @@ Enums added to `models/enums.py` (string enums, extensible where the KG pattern 
   category/status/answer.
 - **Tests:** CRUD, ownership 404, version bump, planner-context wiring, offline. **~15 tests.**
 
-## PHASE B — Methods & Hypotheses
+## PHASE B — Methods & Hypotheses  ✅ DONE
+Implemented as specified. `models/experiment.py` (`Method`, `Hypothesis` only — no Experiment
+tables yet); CRUD in `api/rnd.py` with per-project reference validation; Method is version-aware;
+Hypothesis is distinct from Claim and never auto-advances; planner hint extended
+(`_build_brief_context`) to list existing methods/hypotheses (deterministic, no new LLM); KG
+registry vocabulary added (builder emission deferred to Phase G); frontend `LabPanel.tsx` +
+"Methods & Hypotheses" tab. Tests: `test_rnd_phase_b.py` (14) + `LabPanel.test.tsx` (4). Diff/
+memory/monitoring integration deferred (documented in `RND-PHASE-B-AUDIT.md`). Original spec below.
+
 - **Models:** `Method` (name, description, procedure, inputs[], outputs[], assumptions[], pros[],
   cons[], limitations[], source_id?, applicable_conditions). `Hypothesis` (statement, reasoning,
   variables[], expected_result, actual_result, `status` proposed/testing/supported/partially/

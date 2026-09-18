@@ -106,6 +106,13 @@ CONSTRAINT_TYPES = (
     "technical", "time", "dataset", "hardware", "regulatory",
     "geographic", "budget", "scope", "other",
 )
+# Phase B — Methods & Hypotheses.
+METHOD_STATUSES = ("proposed", "active", "deprecated", "superseded")
+HYPOTHESIS_STATUSES = (
+    "proposed", "testing", "supported", "partially_supported", "rejected", "inconclusive",
+)
+# How a research object came to exist. "derived" is honest only when source/claim links exist.
+RND_ORIGINS = ("user", "agent", "derived")
 
 
 def _pattern(values: tuple[str, ...]) -> str:
@@ -116,6 +123,9 @@ QUESTION_CATEGORY_PATTERN = _pattern(QUESTION_CATEGORIES)
 QUESTION_STATUS_PATTERN = _pattern(QUESTION_STATUSES)
 OBJECTIVE_STATUS_PATTERN = _pattern(OBJECTIVE_STATUSES)
 CONSTRAINT_TYPE_PATTERN = _pattern(CONSTRAINT_TYPES)
+METHOD_STATUS_PATTERN = _pattern(METHOD_STATUSES)
+HYPOTHESIS_STATUS_PATTERN = _pattern(HYPOTHESIS_STATUSES)
+RND_ORIGIN_PATTERN = _pattern(RND_ORIGINS)
 
 
 class EvidenceStance(str, enum.Enum):

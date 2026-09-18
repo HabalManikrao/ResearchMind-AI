@@ -121,6 +121,54 @@ export interface Terminology {
   confidence?: number | null;
 }
 
+// --- R&D layer Phase B: Methods & Hypotheses --- //
+export type MethodStatus = "proposed" | "active" | "deprecated" | "superseded";
+export type HypothesisStatus =
+  | "proposed"
+  | "testing"
+  | "supported"
+  | "partially_supported"
+  | "rejected"
+  | "inconclusive";
+
+export interface Method {
+  id: string;
+  name: string;
+  description: string;
+  procedure: string;
+  inputs: string[];
+  outputs: string[];
+  assumptions: string[];
+  advantages: string[];
+  disadvantages: string[];
+  limitations: string[];
+  applicability: string;
+  status: MethodStatus;
+  origin: string;
+  source_ids: string[];
+  claim_ids: string[];
+  notes: string;
+  version: number;
+}
+
+export interface Hypothesis {
+  id: string;
+  statement: string;
+  reasoning: string;
+  status: HypothesisStatus;
+  confidence?: number | null;
+  origin: string;
+  question_ids: string[];
+  objective_ids: string[];
+  claim_ids: string[];
+  source_ids: string[];
+  method_id?: string | null;
+  variables: string[];
+  expected_result: string;
+  assumptions: string[];
+  notes: string;
+}
+
 export interface Task {
   id: string;
   agent: string;
