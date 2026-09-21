@@ -394,6 +394,26 @@ new KG types go in the extensible `knowledge/registry.py` (migration-free).
   Diff/Memory/Monitoring integration deferred (documented). Frontend: a **Methods & Hypotheses tab**
   (`components/LabPanel.tsx`; proposed hypotheses shown "Not yet validated", rejected kept visible).
   Tests: `test_rnd_phase_b.py` (14) + frontend `LabPanel.test.tsx` (4). Docs: `docs/RND-PHASE-B-*`.
+- **Phase C (done): experiments, datasets & structured results.** `models/experiment.py` adds
+  `Dataset` (version-distinguishable — a new version is a NEW row optionally via `supersedes_id`,
+  never silent-overwrite), `Experiment` (design + reproducibility-metadata + execution fields; digital-
+  thread FKs to question/objective/hypothesis/method/dataset), and `Result` (structured
+  `metrics=[{name,value,unit,lower_bound,upper_bound,conditions}]` + nullable accuracy/latency/…,
+  attributed to an `experiment_id`). **Truthfulness enforced by construction:** `Experiment.status`
+  defaults `proposed` and never auto-advances; `ExperimentCreate` **does not accept** execution fields
+  (started/completed/actual_result/data refs) — execution is recorded only by an explicit PATCH; a
+  Result exists only when explicitly recorded (numeric fields stay null unless supplied). CRUD in
+  `app/api/rnd.py` (`.../datasets`, `.../experiments`, `.../results`); every relationship id validated
+  to the same project via the generalized `_validate_object_links`/`_SINGLE_REF_MODELS` (cross-project
+  → 422, cross-user → 404); deleting an experiment explicitly cascades its results (SQLite FK cascade
+  isn't enforced). Planner hint extended (experiments shown "planned ≠ executed"; datasets by version;
+  deterministic, no new LLM). KG registry gained `experiment`/`dataset`/`result` types +
+  `uses_dataset`/`produces`/`tests` predicates (**vocabulary only; builder emission Phase G**).
+  Result→Evidence bridge + Analysis/Conclusion are **Phase D**; reproducibility verdict is **Phase F**
+  (Phase C only *captures* reproducibility metadata). Frontend: an **Experiments tab**
+  (`components/ExperimentsPanel.tsx`; planned experiments labelled "Not executed", execution details
+  shown only when recorded, structured metric values rendered). Tests: `test_rnd_phase_c.py` (18) +
+  frontend `ExperimentsPanel.test.tsx` (4). Docs: `docs/RND-PHASE-C-*`.
 
 ### Report is assembled deterministically from structured data
 The report LLM writes ONLY interpretive prose (Executive Summary / Key Findings / Detailed Analysis /
@@ -488,7 +508,7 @@ mark-read/read-all/delete). **Frontend:** `pages/Scheduled.tsx`, `pages/Notifica
 Not yet built (remaining Phase 7): the **Postgres/Redis** swap (SQLite → Postgres, in-process SSE bus →
 Redis pub/sub, in-process scheduler → Redis/Celery beat — all already behind seams). `net.validate_url`
 exists as the SSRF control for any new outbound-fetch path — route new fetches through it. A pytest suite
-(`backend/tests/`, 388 tests) covers units, API, middleware, auth + access control, schedules,
+(`backend/tests/`, 406 tests) covers units, API, middleware, auth + access control, schedules,
 notifications, the evidence engine (freshness, scoring, contradiction agent, evidence API),
 Document RAG (parsing, chunking, upload security, service, documents API, offline+hybrid pipeline),
 research memory/again/diff (diff engine, lineage, immutability, carry-forward, migration),
@@ -504,7 +524,7 @@ equivalence, cross-user + no-dangerous-tool security), production hardening (`te
 pagination-bounds regression, offline-suite guard, embedding/graph failure injection, DB integrity,
 CPU/Ollama Stage-1-no-LLM budget, full-lifecycle + REST/MCP external E2E) and the **research-quality
 benchmark** (`test_benchmark.py` asserts the benchmark's thresholds so quality can't silently regress),
-and the full faked pipeline — run it before and after changes (see Commands). The **frontend** now also has a Vitest suite (`frontend/`, `npm test`, 65
+and the full faked pipeline — run it before and after changes (see Commands). The **frontend** now also has a Vitest suite (`frontend/`, `npm test`, 69
 tests: evidence + provenance + monitoring + knowledge-graph mapping, `ClaimsTab` + `DocumentsPanel` DOM
 behavior, RunDiff + History lineage + LineageBar, Research Health banner, MonitorCheckRow drill-down,
 EntityDetail, Integrations).
@@ -608,7 +628,7 @@ cp .env.example .env                                       # set TAVILY_API_KEY,
   `TAVILY_API_KEY` or a running SearXNG; papers = arXiv). Writes `evaluation/live_web/results/`
   (git-ignored). Its **offline** guarantees (isolation/provenance/failure/metrics/security) are asserted
   by `tests/test_live_web_eval.py`.
-- **Tests:** `pip install -r requirements-dev.txt` then `.venv/Scripts/python -m pytest` (388 tests,
+- **Tests:** `pip install -r requirements-dev.txt` then `.venv/Scripts/python -m pytest` (406 tests,
   ~135s, all offline). Config in `pytest.ini` (`asyncio_mode=auto`). `tests/conftest.py` binds an
   isolated temp SQLite DB + Qdrant path via env before app import (incl. `AUTH_ENABLED=true` +
   `JWT_SECRET`), and provides fixtures: `client` (ASGI, **auto-registers a user and attaches its bearer

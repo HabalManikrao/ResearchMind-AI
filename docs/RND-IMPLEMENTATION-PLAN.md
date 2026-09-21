@@ -73,7 +73,17 @@ memory/monitoring integration deferred (documented in `RND-PHASE-B-AUDIT.md`). O
 - **Frontend:** Methods + Hypotheses tabs.
 - **Tests:** CRUD, status lifecycle, hypothesis≠conclusion invariant, ownership. **~12 tests.**
 
-## PHASE C — Experiments, Datasets, Results
+## PHASE C — Experiments, Datasets, Results  ✅ DONE
+Implemented as specified. `models/experiment.py` adds `Dataset` (version-distinguishable via
+`supersedes_id`), `Experiment` (design + reproducibility metadata + execution record; digital-thread
+FKs; status never auto-advances; `ExperimentCreate` excludes execution fields so planned≠executed),
+and `Result` (structured metrics attributed to an experiment; recorded only explicitly). CRUD in
+`api/rnd.py` with generalized per-project reference validation; delete-experiment cascades results
+explicitly. Planner hint extended (deterministic). KG registry vocabulary added (builder emission
+Phase G). Frontend `ExperimentsPanel.tsx` + Experiments tab. Tests `test_rnd_phase_c.py` (18) +
+`ExperimentsPanel.test.tsx` (4). Result→Evidence bridge + Analysis/Conclusion deferred to Phase D;
+reproducibility verdict to Phase F (Phase C captures metadata only). Original spec below.
+
 **Goal:** the lab core; strict anti-fabrication.
 - **Models:** `Dataset` (name, version, source_id?, license, size, num_records, features[],
   data_type, preprocessing, known_biases[], limitations[], quality, access_method) — versions

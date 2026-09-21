@@ -35,10 +35,15 @@ ResearchLog/Checkpoint/Reproducibility/Analysis/Limitation/Comparison/ResearchBr
 - **Phase A (commit `1292e59`):** Research Brief → **COMPLETE**; Objectives → **COMPLETE**;
   Scope/Constraints → **COMPLETE** (structured); Research Questions → **PARTIAL→COMPLETE(core)**
   (category/status/answer/confidence); Terminology → **COMPLETE**. See `models/brief.py`, `api/rnd.py`.
-- **Phase B (this change):** Methods → **COMPLETE**; Hypotheses → **COMPLETE**. See
+- **Phase B (commit `37d9bbf`):** Methods → **COMPLETE**; Hypotheses → **COMPLETE**. See
   `models/experiment.py`, `api/rnd.py` (methods/hypotheses), `RND-PHASE-B-AUDIT.md` +
   `RND-PHASE-B-IMPLEMENTATION-REPORT.md`. KG vocabulary for method/hypothesis added
   (`knowledge/registry.py`); KG graph-builder emission for them deferred to Phase G.
+- **Phase C (this change):** Experiments → **COMPLETE**; Datasets → **COMPLETE**; structured Results
+  → **COMPLETE**. See `models/experiment.py` (Dataset/Experiment/Result), `api/rnd.py`,
+  `RND-PHASE-C-AUDIT.md` + `RND-PHASE-C-IMPLEMENTATION-REPORT.md`. KG vocabulary added; builder
+  emission deferred to Phase G. Result→Evidence bridge / Analysis / Conclusion = Phase D;
+  reproducibility verdict = Phase F.
 
 ## A. Master research components (spec §2, the 28)
 
@@ -56,9 +61,9 @@ ResearchLog/Checkpoint/Reproducibility/Analysis/Limitation/Comparison/ResearchBr
 | 10 | Evidence | **COMPLETE** | `ClaimSource` (stance+passage) + `GET /research/{id}/claims/{cid}/evidence`. |
 | 11 | Claims | **COMPLETE** | `Claim` + `verification` + `confidence_meta` + evidence_state. |
 | 12 | Methods | **COMPLETE** (Phase B) | `Method` (`models/experiment.py`): name/description/procedure/inputs/outputs/assumptions/advantages/disadvantages/limitations/applicability/status/origin/source_ids/claim_ids/version. CRUD `api/rnd.py`; version-aware; ownership + per-project ref validation; tests `test_rnd_phase_b.py`. |
-| 13 | Experiments | **MISSING** | No `Experiment` object or lifecycle. |
-| 14 | Datasets | **MISSING** | No `Dataset` object/versioning. |
-| 15 | Results (structured) | **MISSING** | No `Result` rows (metric/value/unit/conditions/experiment link). `Solution.scores` are qualitative comparison ratings, not measured results. |
+| 13 | Experiments | **COMPLETE** (Phase C) | `Experiment` (`models/experiment.py`): design + reproducibility metadata + execution record; FKs to question/objective/hypothesis/method/dataset; status proposed→inconclusive, **never auto-advances**; execution fields recorded only by explicit PATCH. CRUD `api/rnd.py`; tests `test_rnd_phase_c.py`. |
+| 14 | Datasets | **COMPLETE** (Phase C) | `Dataset` (`models/experiment.py`): name/version/source/license/size/record_count/features/collection/preprocessing/bias/limitations/quality/access/checksum/origin. **Version-distinguishable** (new row + `supersedes_id`; never overwritten). |
+| 15 | Results (structured) | **COMPLETE** (Phase C) | `Result` (`models/experiment.py`): attributed to `experiment_id`; structured `metrics=[{name,value,unit,lower_bound,upper_bound,conditions}]` + measurements/observations/anomalies/resource_usage + nullable accuracy/latency/…; recorded only explicitly. |
 | 16 | Comparisons | **PARTIAL** | `Solution` + `scores` + `rd_analysis` produce a comparison **table**, but no first-class `Comparison` record (subject A/B, criterion, value, unit, evidence/experiment/result links). |
 | 17 | Conflicts | **COMPLETE** | `Conflict` + `contradiction` agent + CONTRADICTS links. |
 | 18 | Limitations | **MISSING** | No structured `Limitation` (type/severity/affected object/mitigation). Some reasons live inside `confidence_meta`. |

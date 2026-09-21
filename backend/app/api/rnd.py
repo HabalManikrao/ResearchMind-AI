@@ -8,7 +8,7 @@ typed constraints are their own collection.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select
+from sqlalchemy import delete as sa_delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.research import _get_project
@@ -16,11 +16,14 @@ from app.database import get_db
 from app.models import (
     Claim,
     Constraint,
+    Dataset,
+    Experiment,
     Hypothesis,
     Method,
     Objective,
     ResearchBrief,
     ResearchQuestion,
+    Result,
     Source,
     Terminology,
     User,
@@ -28,6 +31,12 @@ from app.models import (
 from app.schemas.research import (
     ConstraintCreate,
     ConstraintOut,
+    DatasetCreate,
+    DatasetOut,
+    DatasetUpdate,
+    ExperimentCreate,
+    ExperimentOut,
+    ExperimentUpdate,
     HypothesisCreate,
     HypothesisOut,
     HypothesisUpdate,
@@ -39,6 +48,9 @@ from app.schemas.research import (
     ObjectiveUpdate,
     ResearchBriefOut,
     ResearchBriefUpdate,
+    ResultCreate,
+    ResultOut,
+    ResultUpdate,
     TerminologyCreate,
     TerminologyOut,
     TerminologyUpdate,
@@ -302,22 +314,37 @@ async def _validate_refs(db, project_id, model, ids, label) -> None:
         raise HTTPException(422, f"Unknown or cross-project {label}: {sorted(missing)}")
 
 
-async def _validate_method_ref(db, project_id, method_id) -> None:
-    if method_id is None:
+async def _validate_single_ref(db, project_id, model, id_value, label) -> None:
+    if id_value is None:
         return
-    m = await db.get(Method, method_id)
-    if m is None or m.project_id != project_id:
-        raise HTTPException(422, "Unknown or cross-project method_id")
+    row = await db.get(model, id_value)
+    if row is None or getattr(row, "project_id", None) != project_id:
+        raise HTTPException(422, f"Unknown or cross-project {label}")
+
+
+# Single-id relationship fields → the model they must reference (all project-scoped).
+_SINGLE_REF_MODELS = {
+    "question_id": ResearchQuestion,
+    "objective_id": Objective,
+    "hypothesis_id": Hypothesis,
+    "method_id": Method,
+    "dataset_id": Dataset,
+    "supersedes_id": Dataset,
+    "experiment_id": Experiment,
+}
 
 
 async def _validate_object_links(db, project_id, data: dict) -> None:
-    """Validate every relationship id in a create/update payload against this project."""
+    """Validate every relationship id in a create/update payload against this project, so a client
+    can never attach another project's/user's object (list refs → 422 with the offending ids;
+    single-id refs → 422). Only keys actually present in `data` are checked."""
     await _validate_refs(db, project_id, Source, data.get("source_ids"), "source_ids")
     await _validate_refs(db, project_id, Claim, data.get("claim_ids"), "claim_ids")
     await _validate_refs(db, project_id, ResearchQuestion, data.get("question_ids"), "question_ids")
     await _validate_refs(db, project_id, Objective, data.get("objective_ids"), "objective_ids")
-    if "method_id" in data:
-        await _validate_method_ref(db, project_id, data.get("method_id"))
+    for field, model in _SINGLE_REF_MODELS.items():
+        if field in data:
+            await _validate_single_ref(db, project_id, model, data.get(field), field)
 
 
 # --- Methods --------------------------------------------------------------- #
@@ -479,5 +506,259 @@ async def delete_hypothesis(
     user: User = Depends(get_current_user),
 ):
     row = await _get_owned_hypothesis(db, project_id, hypothesis_id, user)
+    await db.delete(row)
+    await db.commit()
+
+
+# --------------------------------------------------------------------------- #
+# Phase C — Datasets.
+# A new version is a NEW row (optionally `supersedes_id` → the prior version); never overwritten.
+# --------------------------------------------------------------------------- #
+@router.get("/{project_id}/datasets", response_model=list[DatasetOut])
+async def list_datasets(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await _get_project(db, project_id, user)
+    return (
+        await db.execute(
+            select(Dataset).where(Dataset.project_id == project_id).order_by(Dataset.created_at)
+        )
+    ).scalars().all()
+
+
+@router.post("/{project_id}/datasets", response_model=DatasetOut, status_code=201)
+async def create_dataset(
+    project_id: str,
+    body: DatasetCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await _get_project(db, project_id, user)
+    data = body.model_dump()
+    await _validate_object_links(db, project_id, data)  # supersedes_id must be same-project
+    row = Dataset(project_id=project_id, **data)
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+async def _get_owned_dataset(db, project_id, dataset_id, user) -> Dataset:
+    await _get_project(db, project_id, user)
+    row = await db.get(Dataset, dataset_id)
+    if row is None or row.project_id != project_id:
+        raise HTTPException(404, "Dataset not found")
+    return row
+
+
+@router.get("/{project_id}/datasets/{dataset_id}", response_model=DatasetOut)
+async def get_dataset(
+    project_id: str,
+    dataset_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return await _get_owned_dataset(db, project_id, dataset_id, user)
+
+
+@router.patch("/{project_id}/datasets/{dataset_id}", response_model=DatasetOut)
+async def update_dataset(
+    project_id: str,
+    dataset_id: str,
+    body: DatasetUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    row = await _get_owned_dataset(db, project_id, dataset_id, user)
+    changed = body.model_dump(exclude_unset=True)
+    await _validate_object_links(db, project_id, changed)
+    for field, value in changed.items():
+        setattr(row, field, value)
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+@router.delete("/{project_id}/datasets/{dataset_id}", status_code=204)
+async def delete_dataset(
+    project_id: str,
+    dataset_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    row = await _get_owned_dataset(db, project_id, dataset_id, user)
+    await db.delete(row)
+    await db.commit()
+
+
+# --------------------------------------------------------------------------- #
+# Phase C — Experiments. PLANNED ≠ EXECUTED: create never accepts execution fields; execution is
+# recorded only by an explicit PATCH. The API never fabricates measurements/timestamps/outcomes.
+# --------------------------------------------------------------------------- #
+@router.get("/{project_id}/experiments", response_model=list[ExperimentOut])
+async def list_experiments(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await _get_project(db, project_id, user)
+    return (
+        await db.execute(
+            select(Experiment).where(Experiment.project_id == project_id)
+            .order_by(Experiment.created_at)
+        )
+    ).scalars().all()
+
+
+@router.post("/{project_id}/experiments", response_model=ExperimentOut, status_code=201)
+async def create_experiment(
+    project_id: str,
+    body: ExperimentCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await _get_project(db, project_id, user)
+    data = body.model_dump()
+    await _validate_object_links(db, project_id, data)
+    row = Experiment(project_id=project_id, **data)  # execution fields stay null (not in create schema)
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+async def _get_owned_experiment(db, project_id, experiment_id, user) -> Experiment:
+    await _get_project(db, project_id, user)
+    row = await db.get(Experiment, experiment_id)
+    if row is None or row.project_id != project_id:
+        raise HTTPException(404, "Experiment not found")
+    return row
+
+
+@router.get("/{project_id}/experiments/{experiment_id}", response_model=ExperimentOut)
+async def get_experiment(
+    project_id: str,
+    experiment_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return await _get_owned_experiment(db, project_id, experiment_id, user)
+
+
+@router.patch("/{project_id}/experiments/{experiment_id}", response_model=ExperimentOut)
+async def update_experiment(
+    project_id: str,
+    experiment_id: str,
+    body: ExperimentUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    row = await _get_owned_experiment(db, project_id, experiment_id, user)
+    changed = body.model_dump(exclude_unset=True)
+    await _validate_object_links(db, project_id, changed)
+    for field, value in changed.items():
+        setattr(row, field, value)
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+@router.delete("/{project_id}/experiments/{experiment_id}", status_code=204)
+async def delete_experiment(
+    project_id: str,
+    experiment_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    row = await _get_owned_experiment(db, project_id, experiment_id, user)
+    # Delete this experiment's results explicitly (SQLite doesn't enforce FK cascade; the codebase
+    # deletes children explicitly — cf. verification deleting ClaimSource before claims).
+    await db.execute(sa_delete(Result).where(Result.experiment_id == experiment_id))
+    await db.delete(row)
+    await db.commit()
+
+
+# --------------------------------------------------------------------------- #
+# Phase C — structured Results. A Result exists only when explicitly recorded and MUST attribute to
+# an experiment in the same project (validated). Numeric fields stay null unless supplied.
+# --------------------------------------------------------------------------- #
+@router.get("/{project_id}/results", response_model=list[ResultOut])
+async def list_results(
+    project_id: str,
+    experiment_id: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await _get_project(db, project_id, user)
+    stmt = select(Result).where(Result.project_id == project_id)
+    if experiment_id:
+        stmt = stmt.where(Result.experiment_id == experiment_id)
+    return (await db.execute(stmt.order_by(Result.created_at))).scalars().all()
+
+
+@router.post("/{project_id}/results", response_model=ResultOut, status_code=201)
+async def create_result(
+    project_id: str,
+    body: ResultCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await _get_project(db, project_id, user)
+    data = body.model_dump()
+    await _validate_object_links(db, project_id, data)  # experiment_id + dataset_id → same project
+    # metrics are structured dicts (ResultMetric); persisted as JSON as-is.
+    row = Result(project_id=project_id, **data)
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+async def _get_owned_result(db, project_id, result_id, user) -> Result:
+    await _get_project(db, project_id, user)
+    row = await db.get(Result, result_id)
+    if row is None or row.project_id != project_id:
+        raise HTTPException(404, "Result not found")
+    return row
+
+
+@router.get("/{project_id}/results/{result_id}", response_model=ResultOut)
+async def get_result(
+    project_id: str,
+    result_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return await _get_owned_result(db, project_id, result_id, user)
+
+
+@router.patch("/{project_id}/results/{result_id}", response_model=ResultOut)
+async def update_result(
+    project_id: str,
+    result_id: str,
+    body: ResultUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    row = await _get_owned_result(db, project_id, result_id, user)
+    changed = body.model_dump(exclude_unset=True)
+    await _validate_object_links(db, project_id, changed)
+    for field, value in changed.items():
+        setattr(row, field, value)
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+@router.delete("/{project_id}/results/{result_id}", status_code=204)
+async def delete_result(
+    project_id: str,
+    result_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    row = await _get_owned_result(db, project_id, result_id, user)
     await db.delete(row)
     await db.commit()

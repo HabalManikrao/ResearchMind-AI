@@ -10,9 +10,11 @@ from app.models.enums import (
     ConflictSeverity,
     ConflictStatus,
     CONSTRAINT_TYPE_PATTERN,
+    EXPERIMENT_STATUS_PATTERN,
     HYPOTHESIS_STATUS_PATTERN,
     METHOD_STATUS_PATTERN,
     OBJECTIVE_STATUS_PATTERN,
+    RESULT_TYPE_PATTERN,
     ProjectStatus,
     QUESTION_CATEGORY_PATTERN,
     QUESTION_STATUS_PATTERN,
@@ -336,6 +338,278 @@ class HypothesisUpdate(BaseModel):
     variables: list[str] | None = None
     expected_result: str | None = None
     assumptions: list[str] | None = None
+    notes: str | None = None
+
+
+# --------------------------------------------------------------------------- #
+# R&D layer Phase C — Datasets, Experiments, structured Results.
+# --------------------------------------------------------------------------- #
+class DatasetOut(ORMModel):
+    id: str
+    name: str
+    description: str
+    version: str
+    supersedes_id: str | None = None
+    source: str
+    source_url: str | None = None
+    license: str
+    data_type: str
+    size: str
+    record_count: int | None = None
+    features: list
+    collection_method: str
+    collection_date: str | None = None
+    preprocessing: str
+    bias: list
+    limitations: list
+    quality: str
+    access_information: str
+    checksum: str | None = None
+    meta: dict
+    origin: str
+
+
+class DatasetCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=500)
+    description: str = ""
+    version: str = Field(default="1", max_length=100)
+    supersedes_id: str | None = None
+    source: str = ""
+    source_url: str | None = Field(default=None, max_length=2000)
+    license: str = ""
+    data_type: str = ""
+    size: str = ""
+    record_count: int | None = Field(default=None, ge=0)
+    features: list[str] = Field(default_factory=list)
+    collection_method: str = ""
+    collection_date: str | None = None
+    preprocessing: str = ""
+    bias: list[str] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+    quality: str = ""
+    access_information: str = ""
+    checksum: str | None = Field(default=None, max_length=128)
+    meta: dict = Field(default_factory=dict)
+    origin: str = Field(default="user", pattern=RND_ORIGIN_PATTERN)
+
+
+class DatasetUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=500)
+    description: str | None = None
+    version: str | None = Field(default=None, max_length=100)
+    supersedes_id: str | None = None
+    source: str | None = None
+    source_url: str | None = Field(default=None, max_length=2000)
+    license: str | None = None
+    data_type: str | None = None
+    size: str | None = None
+    record_count: int | None = Field(default=None, ge=0)
+    features: list[str] | None = None
+    collection_method: str | None = None
+    collection_date: str | None = None
+    preprocessing: str | None = None
+    bias: list[str] | None = None
+    limitations: list[str] | None = None
+    quality: str | None = None
+    access_information: str | None = None
+    checksum: str | None = Field(default=None, max_length=128)
+    meta: dict | None = None
+    origin: str | None = Field(default=None, pattern=RND_ORIGIN_PATTERN)
+
+
+class ExperimentOut(ORMModel):
+    id: str
+    name: str
+    description: str
+    question_id: str | None = None
+    objective_id: str | None = None
+    hypothesis_id: str | None = None
+    method_id: str | None = None
+    dataset_id: str | None = None
+    dataset_version: str | None = None
+    independent_variables: list
+    dependent_variables: list
+    controlled_variables: list
+    controls: str
+    assumptions: list
+    expected_result: str
+    failure_conditions: str
+    procedure: str
+    inputs: list
+    outputs: list
+    metrics: list
+    hardware: str
+    software: str
+    software_versions: list
+    environment: str
+    configuration: dict
+    seed: str | None = None
+    status: str
+    planned_at: str | None = None
+    started_at: str | None = None
+    completed_at: str | None = None
+    actual_result_summary: str | None = None
+    raw_data_reference: str | None = None
+    processed_data_reference: str | None = None
+    execution_notes: str
+    origin: str
+
+
+class ExperimentCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=500)
+    description: str = ""
+    question_id: str | None = None
+    objective_id: str | None = None
+    hypothesis_id: str | None = None
+    method_id: str | None = None
+    dataset_id: str | None = None
+    dataset_version: str | None = Field(default=None, max_length=100)
+    independent_variables: list[str] = Field(default_factory=list)
+    dependent_variables: list[str] = Field(default_factory=list)
+    controlled_variables: list[str] = Field(default_factory=list)
+    controls: str = ""
+    assumptions: list[str] = Field(default_factory=list)
+    expected_result: str = ""
+    failure_conditions: str = ""
+    procedure: str = ""
+    inputs: list[str] = Field(default_factory=list)
+    outputs: list[str] = Field(default_factory=list)
+    metrics: list[str] = Field(default_factory=list)
+    hardware: str = ""
+    software: str = ""
+    software_versions: list[str] = Field(default_factory=list)
+    environment: str = ""
+    configuration: dict = Field(default_factory=dict)
+    seed: str | None = Field(default=None, max_length=100)
+    # Execution fields are intentionally NOT accepted at create time (planned != executed).
+    status: str = Field(default="proposed", pattern=EXPERIMENT_STATUS_PATTERN)
+    planned_at: str | None = None
+    origin: str = Field(default="user", pattern=RND_ORIGIN_PATTERN)
+
+
+class ExperimentUpdate(BaseModel):
+    """Full update — execution fields ARE settable here (this is the explicit 'record execution'
+    action). Setting them is a deliberate client action, never automatic."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=500)
+    description: str | None = None
+    question_id: str | None = None
+    objective_id: str | None = None
+    hypothesis_id: str | None = None
+    method_id: str | None = None
+    dataset_id: str | None = None
+    dataset_version: str | None = Field(default=None, max_length=100)
+    independent_variables: list[str] | None = None
+    dependent_variables: list[str] | None = None
+    controlled_variables: list[str] | None = None
+    controls: str | None = None
+    assumptions: list[str] | None = None
+    expected_result: str | None = None
+    failure_conditions: str | None = None
+    procedure: str | None = None
+    inputs: list[str] | None = None
+    outputs: list[str] | None = None
+    metrics: list[str] | None = None
+    hardware: str | None = None
+    software: str | None = None
+    software_versions: list[str] | None = None
+    environment: str | None = None
+    configuration: dict | None = None
+    seed: str | None = Field(default=None, max_length=100)
+    status: str | None = Field(default=None, pattern=EXPERIMENT_STATUS_PATTERN)
+    planned_at: str | None = None
+    started_at: str | None = None
+    completed_at: str | None = None
+    actual_result_summary: str | None = None
+    raw_data_reference: str | None = None
+    processed_data_reference: str | None = None
+    execution_notes: str | None = None
+    origin: str | None = Field(default=None, pattern=RND_ORIGIN_PATTERN)
+
+
+class ResultMetric(BaseModel):
+    """A single structured metric — values live as data, not prose."""
+
+    name: str
+    value: float | str | None = None
+    unit: str | None = None
+    lower_bound: float | None = None
+    upper_bound: float | None = None
+    conditions: str | None = None
+
+
+class ResultOut(ORMModel):
+    id: str
+    experiment_id: str
+    dataset_id: str | None = None
+    name: str
+    description: str
+    result_type: str
+    metrics: list
+    measurements: list
+    benchmark: str
+    error_rate: float | None = None
+    latency: str | None = None
+    throughput: str | None = None
+    accuracy: float | None = None
+    cost: str | None = None
+    resource_usage: str
+    observations: str
+    anomalies: str
+    raw_data_reference: str | None = None
+    processed_data_reference: str | None = None
+    conditions: str
+    confidence: float | None = None
+    origin: str
+    notes: str
+
+
+class ResultCreate(BaseModel):
+    experiment_id: str = Field(min_length=1)  # a result MUST attribute to an experiment
+    dataset_id: str | None = None
+    name: str = ""
+    description: str = ""
+    result_type: str = Field(default="measurement", pattern=RESULT_TYPE_PATTERN)
+    metrics: list[ResultMetric] = Field(default_factory=list)
+    measurements: list = Field(default_factory=list)
+    benchmark: str = ""
+    error_rate: float | None = None
+    latency: str | None = None
+    throughput: str | None = None
+    accuracy: float | None = None
+    cost: str | None = None
+    resource_usage: str = ""
+    observations: str = ""
+    anomalies: str = ""
+    raw_data_reference: str | None = None
+    processed_data_reference: str | None = None
+    conditions: str = ""
+    confidence: float | None = Field(default=None, ge=0, le=100)
+    origin: str = Field(default="user", pattern=RND_ORIGIN_PATTERN)
+    notes: str = ""
+
+
+class ResultUpdate(BaseModel):
+    dataset_id: str | None = None
+    name: str | None = None
+    description: str | None = None
+    result_type: str | None = Field(default=None, pattern=RESULT_TYPE_PATTERN)
+    metrics: list[ResultMetric] | None = None
+    measurements: list | None = None
+    benchmark: str | None = None
+    error_rate: float | None = None
+    latency: str | None = None
+    throughput: str | None = None
+    accuracy: float | None = None
+    cost: str | None = None
+    resource_usage: str | None = None
+    observations: str | None = None
+    anomalies: str | None = None
+    raw_data_reference: str | None = None
+    processed_data_reference: str | None = None
+    conditions: str | None = None
+    confidence: float | None = Field(default=None, ge=0, le=100)
+    origin: str | None = Field(default=None, pattern=RND_ORIGIN_PATTERN)
     notes: str | None = None
 
 

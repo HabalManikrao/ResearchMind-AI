@@ -193,12 +193,12 @@ async def test_creating_hypothesis_does_not_fabricate_or_call_llm(client, monkey
     assert again["status"] == "proposed"
 
 
-async def test_no_experiment_or_result_tables_yet():
-    # Phase B must NOT prematurely create Phase C tables.
+async def test_method_and_hypothesis_tables_exist():
+    # Phase B tables exist. (The original Phase-B guard also asserted experiments/datasets/results
+    # were ABSENT — that scope boundary was intentionally superseded by Phase C, which creates them.)
     from app.database import Base
     tbls = set(Base.metadata.tables)
     assert "methods" in tbls and "hypotheses" in tbls
-    assert "experiments" not in tbls and "results" not in tbls and "datasets" not in tbls
 
 
 # --------------------------------------------------------------------------- #

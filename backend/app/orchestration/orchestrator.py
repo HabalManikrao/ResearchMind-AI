@@ -913,7 +913,7 @@ async def _build_brief_context(project_id: str) -> str | None:
     zero extra LLM calls. Returns None when no front-matter content exists, so runs without a
     brief are unaffected. The planner is only *informed* of existing methods/hypotheses; it never
     auto-creates them (spec §16)."""
-    from app.models import Constraint, Hypothesis, Method, ResearchBrief
+    from app.models import Constraint, Dataset, Experiment, Hypothesis, Method, ResearchBrief
 
     async with SessionLocal() as db:
         brief = (
@@ -927,6 +927,12 @@ async def _build_brief_context(project_id: str) -> str | None:
         ).scalars().all()
         hypotheses = (
             await db.execute(select(Hypothesis).where(Hypothesis.project_id == project_id))
+        ).scalars().all()
+        experiments = (
+            await db.execute(select(Experiment).where(Experiment.project_id == project_id))
+        ).scalars().all()
+        datasets = (
+            await db.execute(select(Dataset).where(Dataset.project_id == project_id))
         ).scalars().all()
 
     parts: list[str] = []
@@ -954,6 +960,14 @@ async def _build_brief_context(project_id: str) -> str | None:
     if hypotheses:
         parts.append("Existing hypotheses (awaiting testing — do not treat as settled): "
                      + "; ".join(f"{h.statement} [{h.status}]" for h in hypotheses[:12]))
+    # Phase C: inform planning of experiments/datasets on record. A planned experiment is NOT
+    # executed — never treat its expected result as an actual measurement.
+    if experiments:
+        parts.append("Existing experiments (status shown; planned ≠ executed): "
+                     + "; ".join(f"{e.name} [{e.status}]" for e in experiments[:12]))
+    if datasets:
+        parts.append("Available datasets: "
+                     + "; ".join(f"{d.name} (v{d.version})" for d in datasets[:12]))
     if not parts:
         return None
     return "=== Research brief (honour scope + constraints) ===\n" + "\n".join(parts)

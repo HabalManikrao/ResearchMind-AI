@@ -12,7 +12,7 @@ from app.models.enums import (
 from app.models.brief import Constraint, Objective, ResearchBrief, Terminology
 from app.models.cache import CachedSource
 from app.models.document import Document, DocumentChunk
-from app.models.experiment import Hypothesis, Method
+from app.models.experiment import Dataset, Experiment, Hypothesis, Method, Result
 from app.models.graph import KgClaimLink, KgEntity, KgMention, KgRelationship
 from app.models.monitor import MonitorCheck, ResearchMonitor
 from app.models.research import (
@@ -48,13 +48,16 @@ __all__ = [
     "ClaimSource",
     "Conflict",
     "Constraint",
+    "Dataset",
     "Document",
     "DocumentChunk",
+    "Experiment",
     "Finding",
     "Hypothesis",
     "Method",
     "Objective",
     "ResearchBrief",
+    "Result",
     "Terminology",
     "KgClaimLink",
     "KgEntity",

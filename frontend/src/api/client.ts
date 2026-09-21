@@ -6,8 +6,11 @@ import type {
   Conflict,
   Constraint,
   CreateResearch,
+  Dataset,
+  Experiment,
   Hypothesis,
   Method,
+  Result,
   DocumentItem,
   DocumentPassage,
   HealthStatus,
@@ -169,6 +172,35 @@ export const api = {
     }),
   deleteHypothesis: (id: string, hid: string) =>
     req<void>(`/research/${id}/hypotheses/${hid}`, { method: "DELETE" }),
+
+  // --- R&D layer Phase C: Experiments, Datasets, Results --- //
+  datasets: (id: string) => req<Dataset[]>(`/research/${id}/datasets`),
+  createDataset: (id: string, body: Partial<Dataset>) =>
+    req<Dataset>(`/research/${id}/datasets`, { method: "POST", body: JSON.stringify(body) }),
+  updateDataset: (id: string, did: string, patch: Partial<Dataset>) =>
+    req<Dataset>(`/research/${id}/datasets/${did}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deleteDataset: (id: string, did: string) =>
+    req<void>(`/research/${id}/datasets/${did}`, { method: "DELETE" }),
+  experiments: (id: string) => req<Experiment[]>(`/research/${id}/experiments`),
+  createExperiment: (id: string, body: Partial<Experiment>) =>
+    req<Experiment>(`/research/${id}/experiments`, { method: "POST", body: JSON.stringify(body) }),
+  updateExperiment: (id: string, eid: string, patch: Partial<Experiment>) =>
+    req<Experiment>(`/research/${id}/experiments/${eid}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+  deleteExperiment: (id: string, eid: string) =>
+    req<void>(`/research/${id}/experiments/${eid}`, { method: "DELETE" }),
+  results: (id: string, experimentId?: string) =>
+    req<Result[]>(
+      `/research/${id}/results${experimentId ? `?experiment_id=${experimentId}` : ""}`,
+    ),
+  createResult: (id: string, body: Partial<Result>) =>
+    req<Result>(`/research/${id}/results`, { method: "POST", body: JSON.stringify(body) }),
+  updateResult: (id: string, rid: string, patch: Partial<Result>) =>
+    req<Result>(`/research/${id}/results/${rid}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deleteResult: (id: string, rid: string) =>
+    req<void>(`/research/${id}/results/${rid}`, { method: "DELETE" }),
   tasks: (id: string) => req<Task[]>(`/research/${id}/tasks`),
   sources: (id: string) => req<Source[]>(`/research/${id}/sources`),
   claims: (id: string) => req<Claim[]>(`/research/${id}/claims`),

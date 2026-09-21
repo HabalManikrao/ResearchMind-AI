@@ -25,6 +25,9 @@ ENTITY_TYPES = {
     # emission for these is Phase G (deferred) — adding the types here does not create nodes.
     "method",
     "hypothesis",
+    "experiment",  # Phase C
+    "dataset",     # Phase C
+    "result",      # Phase C
     "other",
 }
 DEFAULT_ENTITY_TYPE = "other"
@@ -56,6 +59,10 @@ PREDICATES = {
     "supported_by",
     "uses_method",
     "investigates",
+    # Phase C predicates (vocabulary only).
+    "uses_dataset",
+    "produces",
+    "tests",
 }
 DEFAULT_PREDICATE = "related_to"
 

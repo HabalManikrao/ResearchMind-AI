@@ -169,6 +169,114 @@ export interface Hypothesis {
   notes: string;
 }
 
+// --- R&D layer Phase C: Experiments, Datasets, Results --- //
+export type ExperimentStatus =
+  | "proposed"
+  | "planned"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "inconclusive";
+
+export interface Dataset {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  supersedes_id?: string | null;
+  source: string;
+  source_url?: string | null;
+  license: string;
+  data_type: string;
+  size: string;
+  record_count?: number | null;
+  features: string[];
+  collection_method: string;
+  collection_date?: string | null;
+  preprocessing: string;
+  bias: string[];
+  limitations: string[];
+  quality: string;
+  access_information: string;
+  checksum?: string | null;
+  meta: Record<string, unknown>;
+  origin: string;
+}
+
+export interface Experiment {
+  id: string;
+  name: string;
+  description: string;
+  question_id?: string | null;
+  objective_id?: string | null;
+  hypothesis_id?: string | null;
+  method_id?: string | null;
+  dataset_id?: string | null;
+  dataset_version?: string | null;
+  independent_variables: string[];
+  dependent_variables: string[];
+  controlled_variables: string[];
+  controls: string;
+  assumptions: string[];
+  expected_result: string;
+  failure_conditions: string;
+  procedure: string;
+  inputs: string[];
+  outputs: string[];
+  metrics: string[];
+  hardware: string;
+  software: string;
+  software_versions: string[];
+  environment: string;
+  configuration: Record<string, unknown>;
+  seed?: string | null;
+  status: ExperimentStatus;
+  planned_at?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  actual_result_summary?: string | null;
+  raw_data_reference?: string | null;
+  processed_data_reference?: string | null;
+  execution_notes: string;
+  origin: string;
+}
+
+export interface ResultMetric {
+  name: string;
+  value?: number | string | null;
+  unit?: string | null;
+  lower_bound?: number | null;
+  upper_bound?: number | null;
+  conditions?: string | null;
+}
+
+export interface Result {
+  id: string;
+  experiment_id: string;
+  dataset_id?: string | null;
+  name: string;
+  description: string;
+  result_type: string;
+  metrics: ResultMetric[];
+  measurements: unknown[];
+  benchmark: string;
+  error_rate?: number | null;
+  latency?: string | null;
+  throughput?: string | null;
+  accuracy?: number | null;
+  cost?: string | null;
+  resource_usage: string;
+  observations: string;
+  anomalies: string;
+  raw_data_reference?: string | null;
+  processed_data_reference?: string | null;
+  conditions: string;
+  confidence?: number | null;
+  origin: string;
+  notes: string;
+}
+
 export interface Task {
   id: string;
   agent: string;

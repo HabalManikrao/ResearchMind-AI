@@ -113,6 +113,13 @@ HYPOTHESIS_STATUSES = (
 )
 # How a research object came to exist. "derived" is honest only when source/claim links exist.
 RND_ORIGINS = ("user", "agent", "derived")
+# Phase C — Experiments, Datasets, Results.
+EXPERIMENT_STATUSES = (
+    "proposed", "planned", "running", "completed", "failed", "cancelled", "inconclusive",
+)
+# An experiment is only "executed" once it reaches one of these terminal-run states.
+EXPERIMENT_EXECUTED_STATUSES = ("running", "completed", "failed", "inconclusive")
+RESULT_TYPES = ("measurement", "benchmark", "observation", "qualitative", "other")
 
 
 def _pattern(values: tuple[str, ...]) -> str:
@@ -126,6 +133,8 @@ CONSTRAINT_TYPE_PATTERN = _pattern(CONSTRAINT_TYPES)
 METHOD_STATUS_PATTERN = _pattern(METHOD_STATUSES)
 HYPOTHESIS_STATUS_PATTERN = _pattern(HYPOTHESIS_STATUSES)
 RND_ORIGIN_PATTERN = _pattern(RND_ORIGINS)
+EXPERIMENT_STATUS_PATTERN = _pattern(EXPERIMENT_STATUSES)
+RESULT_TYPE_PATTERN = _pattern(RESULT_TYPES)
 
 
 class EvidenceStance(str, enum.Enum):
