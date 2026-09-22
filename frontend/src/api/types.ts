@@ -277,6 +277,55 @@ export interface Result {
   notes: string;
 }
 
+// --- R&D layer Phase D: Analysis & Conclusions --- //
+export type AnalysisClassification =
+  | "fact"
+  | "interpretation"
+  | "inference"
+  | "hypothesis"
+  | "opinion";
+
+export type ConclusionClassification =
+  | "proven"
+  | "strongly_supported"
+  | "supported"
+  | "weakly_supported"
+  | "inconclusive"
+  | "unknown"
+  | "contradicted"
+  | "disproved";
+
+export interface Analysis {
+  id: string;
+  title: string;
+  statement: string;
+  classification: AnalysisClassification;
+  reasoning: string;
+  confidence?: number | null;
+  origin: string;
+  claim_ids: string[];
+  source_ids: string[];
+  result_ids: string[];
+  experiment_ids: string[];
+  notes: string;
+}
+
+export interface Conclusion {
+  id: string;
+  title: string;
+  statement: string;
+  classification: ConclusionClassification;
+  confidence?: number | null;
+  reasoning: string;
+  origin: string;
+  analysis_ids: string[];
+  claim_ids: string[];
+  source_ids: string[];
+  question_ids: string[];
+  contradicting_claim_ids: string[];
+  notes: string;
+}
+
 export interface Task {
   id: string;
   agent: string;
@@ -447,6 +496,14 @@ export interface Recommendation {
   risks: string[];
   proof_of_concept: string;
   roadmap: RoadmapStep[];
+  // R&D layer Phase D — additive traceability links + priority (optional; older rows lack them).
+  conclusion_ids?: string[];
+  analysis_ids?: string[];
+  result_ids?: string[];
+  experiment_ids?: string[];
+  priority?: string | null;
+  expected_benefit?: string;
+  tradeoffs?: string[];
 }
 
 export type ConflictSeverity = "high" | "medium" | "low";

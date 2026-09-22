@@ -102,7 +102,18 @@ reproducibility verdict to Phase F (Phase C captures metadata only). Original sp
 - **Tests:** CRUD, lifecycle, no-result-without-run, dataset versioning (no silent replace),
   ownership, offline. **~20 tests.**
 
-## PHASE D — Comparisons, Limitations, Analysis, Conclusions
+## PHASE D — Analysis, Conclusions & Recommendation extension  ✅ DONE (partial-scope)
+Implemented the **Analysis + Conclusions + Recommendation-traceability** core (the audited Phase D
+scope): `models/analysis.py` (`Analysis` classified+grounded, `Conclusion` classified+traceable);
+`Recommendation` extended additively with conclusion/analysis/result/experiment links + priority/
+benefit/tradeoffs; CRUD in `api/rnd.py` with generalized per-project ref validation; `report.py`
+injects `## Analysis`/`## Conclusions` from rows and tightens the narrative gate
+(`conclusions_unsupported`); KG vocabulary added (emission Phase G). Tests: `test_rnd_phase_d.py`
+(19) + `AnalysisPanel.test.tsx` (4). **Comparisons and Limitations** (originally grouped into this
+phase heading) remain first-class MISSING and are **deferred** (not required for the
+Result→Analysis→Conclusion→Recommendation chain; `Solution`/`scores` cover comparison rendering
+today). Original grouped spec below.
+
 - **Models:** `Comparison` (subject_a, subject_b, criterion, value, unit, conditions, source_id?,
   experiment_id?, result_id?, confidence) — coexists with the existing `Solution` table (Solution =
   the qualitative recommendation matrix; Comparison = atomic evidence-linked data points).

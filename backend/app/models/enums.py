@@ -120,6 +120,14 @@ EXPERIMENT_STATUSES = (
 # An experiment is only "executed" once it reaches one of these terminal-run states.
 EXPERIMENT_EXECUTED_STATUSES = ("running", "completed", "failed", "inconclusive")
 RESULT_TYPES = ("measurement", "benchmark", "observation", "qualitative", "other")
+# Phase D — Analysis & Conclusions.
+# Each analysis item is explicitly classified; a FACT classification does NOT make it independently
+# verified — grounding lives in the evidence links, not the label.
+ANALYSIS_CLASSIFICATIONS = ("fact", "interpretation", "inference", "hypothesis", "opinion")
+CONCLUSION_CLASSIFICATIONS = (
+    "proven", "strongly_supported", "supported", "weakly_supported",
+    "inconclusive", "unknown", "contradicted", "disproved",
+)
 
 
 def _pattern(values: tuple[str, ...]) -> str:
@@ -135,6 +143,8 @@ HYPOTHESIS_STATUS_PATTERN = _pattern(HYPOTHESIS_STATUSES)
 RND_ORIGIN_PATTERN = _pattern(RND_ORIGINS)
 EXPERIMENT_STATUS_PATTERN = _pattern(EXPERIMENT_STATUSES)
 RESULT_TYPE_PATTERN = _pattern(RESULT_TYPES)
+ANALYSIS_CLASSIFICATION_PATTERN = _pattern(ANALYSIS_CLASSIFICATIONS)
+CONCLUSION_CLASSIFICATION_PATTERN = _pattern(CONCLUSION_CLASSIFICATIONS)
 
 
 class EvidenceStance(str, enum.Enum):

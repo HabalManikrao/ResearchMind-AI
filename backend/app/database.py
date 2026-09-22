@@ -63,6 +63,18 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
         "answer": "TEXT",
         "answer_confidence": "FLOAT",
     },
+    # R&D layer Phase D: recommendations gain additive traceability links + priority. All
+    # nullable/JSON so existing recommendations remain valid. analyses/conclusions are new tables
+    # created whole by create_all — no ALTER needed there.
+    "recommendations": {
+        "conclusion_ids": "JSON",
+        "analysis_ids": "JSON",
+        "result_ids": "JSON",
+        "experiment_ids": "JSON",
+        "priority": "TEXT",
+        "expected_benefit": "TEXT",
+        "tradeoffs": "JSON",
+    },
 }
 
 

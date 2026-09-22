@@ -9,6 +9,8 @@ from app.models.enums import (
     ClaimStatus,
     ConflictSeverity,
     ConflictStatus,
+    ANALYSIS_CLASSIFICATION_PATTERN,
+    CONCLUSION_CLASSIFICATION_PATTERN,
     CONSTRAINT_TYPE_PATTERN,
     EXPERIMENT_STATUS_PATTERN,
     HYPOTHESIS_STATUS_PATTERN,
@@ -613,6 +615,100 @@ class ResultUpdate(BaseModel):
     notes: str | None = None
 
 
+# --------------------------------------------------------------------------- #
+# R&D layer Phase D — Analysis & Conclusions.
+# --------------------------------------------------------------------------- #
+class AnalysisOut(ORMModel):
+    id: str
+    title: str
+    statement: str
+    classification: str
+    reasoning: str
+    confidence: float | None = None
+    origin: str
+    claim_ids: list
+    source_ids: list
+    result_ids: list
+    experiment_ids: list
+    notes: str
+
+
+class AnalysisCreate(BaseModel):
+    title: str = Field(default="", max_length=500)
+    statement: str = Field(min_length=3)
+    classification: str = Field(default="interpretation", pattern=ANALYSIS_CLASSIFICATION_PATTERN)
+    reasoning: str = ""
+    confidence: float | None = Field(default=None, ge=0, le=100)
+    origin: str = Field(default="user", pattern=RND_ORIGIN_PATTERN)
+    # Grounding — the API requires at least one of claim/source/result references.
+    claim_ids: list[str] = Field(default_factory=list)
+    source_ids: list[str] = Field(default_factory=list)
+    result_ids: list[str] = Field(default_factory=list)
+    experiment_ids: list[str] = Field(default_factory=list)
+    notes: str = ""
+
+
+class AnalysisUpdate(BaseModel):
+    title: str | None = Field(default=None, max_length=500)
+    statement: str | None = Field(default=None, min_length=3)
+    classification: str | None = Field(default=None, pattern=ANALYSIS_CLASSIFICATION_PATTERN)
+    reasoning: str | None = None
+    confidence: float | None = Field(default=None, ge=0, le=100)
+    origin: str | None = Field(default=None, pattern=RND_ORIGIN_PATTERN)
+    claim_ids: list[str] | None = None
+    source_ids: list[str] | None = None
+    result_ids: list[str] | None = None
+    experiment_ids: list[str] | None = None
+    notes: str | None = None
+
+
+class ConclusionOut(ORMModel):
+    id: str
+    title: str
+    statement: str
+    classification: str
+    confidence: float | None = None
+    reasoning: str
+    origin: str
+    analysis_ids: list
+    claim_ids: list
+    source_ids: list
+    question_ids: list
+    contradicting_claim_ids: list
+    notes: str
+
+
+class ConclusionCreate(BaseModel):
+    title: str = Field(default="", max_length=500)
+    statement: str = Field(min_length=3)
+    classification: str = Field(default="inconclusive", pattern=CONCLUSION_CLASSIFICATION_PATTERN)
+    confidence: float | None = Field(default=None, ge=0, le=100)
+    reasoning: str = ""
+    origin: str = Field(default="user", pattern=RND_ORIGIN_PATTERN)
+    # Grounding — the API requires at least one analysis or claim reference.
+    analysis_ids: list[str] = Field(default_factory=list)
+    claim_ids: list[str] = Field(default_factory=list)
+    source_ids: list[str] = Field(default_factory=list)
+    question_ids: list[str] = Field(default_factory=list)
+    contradicting_claim_ids: list[str] = Field(default_factory=list)
+    notes: str = ""
+
+
+class ConclusionUpdate(BaseModel):
+    title: str | None = Field(default=None, max_length=500)
+    statement: str | None = Field(default=None, min_length=3)
+    classification: str | None = Field(default=None, pattern=CONCLUSION_CLASSIFICATION_PATTERN)
+    confidence: float | None = Field(default=None, ge=0, le=100)
+    reasoning: str | None = None
+    origin: str | None = Field(default=None, pattern=RND_ORIGIN_PATTERN)
+    analysis_ids: list[str] | None = None
+    claim_ids: list[str] | None = None
+    source_ids: list[str] | None = None
+    question_ids: list[str] | None = None
+    contradicting_claim_ids: list[str] | None = None
+    notes: str | None = None
+
+
 class TaskOut(ORMModel):
     id: str
     agent: str
@@ -721,6 +817,27 @@ class RecommendationOut(ORMModel):
     risks: list
     proof_of_concept: str
     roadmap: list
+    # Phase D additive traceability links + priority.
+    conclusion_ids: list = Field(default_factory=list)
+    analysis_ids: list = Field(default_factory=list)
+    result_ids: list = Field(default_factory=list)
+    experiment_ids: list = Field(default_factory=list)
+    priority: str | None = None
+    expected_benefit: str = ""
+    tradeoffs: list = Field(default_factory=list)
+
+
+class RecommendationLinksUpdate(BaseModel):
+    """Explicit action to link the (auto-generated) recommendation into the structured chain and set
+    priority/benefit/tradeoffs. Additive — never rewrites recommended_option/rationale/confidence."""
+
+    conclusion_ids: list[str] | None = None
+    analysis_ids: list[str] | None = None
+    result_ids: list[str] | None = None
+    experiment_ids: list[str] | None = None
+    priority: str | None = Field(default=None, pattern="^(high|medium|low)$")
+    expected_benefit: str | None = None
+    tradeoffs: list[str] | None = None
 
 
 class ReportOut(BaseModel):

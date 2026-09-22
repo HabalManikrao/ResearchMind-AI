@@ -43,6 +43,7 @@ import DocumentsPanel from "../components/DocumentsPanel";
 import BriefPanel from "../components/BriefPanel";
 import LabPanel from "../components/LabPanel";
 import ExperimentsPanel from "../components/ExperimentsPanel";
+import AnalysisPanel from "../components/AnalysisPanel";
 import type {
   KnowledgeGraph,
   SourceHealth,
@@ -70,6 +71,7 @@ type Tab =
   | "lab"
   | "experiments"
   | "conflicts"
+  | "analysis"
   | "recommendation"
   | "graph"
   | "report"
@@ -203,6 +205,7 @@ export default function LiveResearch() {
     { key: "lab", label: "Methods & Hypotheses" },
     { key: "experiments", label: "Experiments" },
     { key: "conflicts", label: "Conflicts", count: conflicts.length },
+    { key: "analysis", label: "Analysis & Conclusions" },
     { key: "recommendation", label: "Recommendation" },
     { key: "graph", label: "Graph" },
     { key: "report", label: "Report" },
@@ -294,6 +297,7 @@ export default function LiveResearch() {
       {tab === "lab" && <LabPanel projectId={id!} />}
       {tab === "experiments" && <ExperimentsPanel projectId={id!} />}
       {tab === "conflicts" && <ConflictsTab conflicts={conflicts} />}
+      {tab === "analysis" && <AnalysisPanel projectId={id!} />}
       {tab === "recommendation" && (
         <RecommendationTab
           recommendation={recommendation}
@@ -937,8 +941,26 @@ function RecommendationTab({
             <span className="rounded-full bg-brand-100 px-2 py-0.5 text-xs font-semibold text-brand-700">
               {Math.round(recommendation.confidence)}% confidence
             </span>
+            {recommendation.priority && (
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                priority: {recommendation.priority}
+              </span>
+            )}
           </div>
+          {/* Phase D traceability: this recommendation rests on structured conclusions/analysis. */}
+          {(recommendation.conclusion_ids?.length || recommendation.analysis_ids?.length) ? (
+            <p className="mt-1 text-xs text-slate-400">
+              Traceable to {recommendation.conclusion_ids?.length ?? 0} conclusion(s),{" "}
+              {recommendation.analysis_ids?.length ?? 0} analysis
+            </p>
+          ) : null}
           <p className="mt-2 text-sm text-slate-700">{recommendation.rationale}</p>
+          {recommendation.expected_benefit && (
+            <p className="mt-2 text-sm text-slate-600">
+              <span className="font-medium">Expected benefit: </span>
+              {recommendation.expected_benefit}
+            </p>
+          )}
           {recommendation.why && (
             <p className="mt-2 text-sm text-slate-600">
               <span className="font-medium">Why: </span>

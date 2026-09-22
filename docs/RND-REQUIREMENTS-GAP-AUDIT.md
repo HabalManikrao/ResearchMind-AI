@@ -39,11 +39,15 @@ ResearchLog/Checkpoint/Reproducibility/Analysis/Limitation/Comparison/ResearchBr
   `models/experiment.py`, `api/rnd.py` (methods/hypotheses), `RND-PHASE-B-AUDIT.md` +
   `RND-PHASE-B-IMPLEMENTATION-REPORT.md`. KG vocabulary for method/hypothesis added
   (`knowledge/registry.py`); KG graph-builder emission for them deferred to Phase G.
-- **Phase C (this change):** Experiments → **COMPLETE**; Datasets → **COMPLETE**; structured Results
-  → **COMPLETE**. See `models/experiment.py` (Dataset/Experiment/Result), `api/rnd.py`,
-  `RND-PHASE-C-AUDIT.md` + `RND-PHASE-C-IMPLEMENTATION-REPORT.md`. KG vocabulary added; builder
-  emission deferred to Phase G. Result→Evidence bridge / Analysis / Conclusion = Phase D;
-  reproducibility verdict = Phase F.
+- **Phase C (commit `8fafa26`):** Experiments → **COMPLETE**; Datasets → **COMPLETE**; structured
+  Results → **COMPLETE**. See `models/experiment.py` (Dataset/Experiment/Result), `api/rnd.py`,
+  `RND-PHASE-C-*`. KG vocabulary added; builder emission deferred to Phase G.
+- **Phase D (this change):** Analysis → **COMPLETE**; Conclusions → **COMPLETE**; Recommendation
+  traceability → **COMPLETE** (extended, not replaced); Result→Evidence-via-Analysis → **COMPLETE**;
+  report Analysis/Conclusions from rows + truthfulness gate → **COMPLETE**. See `models/analysis.py`,
+  `api/rnd.py`, `agents/report.py`, `RND-PHASE-D-AUDIT.md` + `RND-PHASE-D-IMPLEMENTATION-REPORT.md`.
+  KG vocabulary added; builder emission Phase G. Analysis/Conclusion diff/memory/monitoring inclusion
+  = deferred; reproducibility verdict + universal versioning = Phase F.
 
 ## A. Master research components (spec §2, the 28)
 
@@ -69,9 +73,9 @@ ResearchLog/Checkpoint/Reproducibility/Analysis/Limitation/Comparison/ResearchBr
 | 18 | Limitations | **MISSING** | No structured `Limitation` (type/severity/affected object/mitigation). Some reasons live inside `confidence_meta`. |
 | 19 | Research Gaps | **PARTIAL** | `KnowledgeGap` (`question, reason, followup_query, round, resolved`). Missing importance/impact/missing-evidence/related links/status. |
 | 20 | Hypotheses | **COMPLETE** (Phase B) | `Hypothesis` (`models/experiment.py`): statement/reasoning/status(proposed…inconclusive)/confidence/origin + links to questions/objectives/claims/sources + optional method_id + variables/expected_result. Distinct from `Claim`; never auto-advances. CRUD `api/rnd.py`; tests `test_rnd_phase_b.py`. |
-| 21 | Analysis | **PARTIAL** | `rd_analysis` yields `Solution`/`Recommendation`. Missing per-item classification (**FACT/INTERPRETATION/INFERENCE/HYPOTHESIS/OPINION**) tied to evidence. |
-| 22 | Conclusions | **MISSING** | Report has narrative "conclusions" prose, but no first-class `Conclusion` (classification Proven…Disproved, traceability to claims/evidence/experiments/results). |
-| 23 | Recommendations | **PARTIAL** | `Recommendation` (option/rationale/why/confidence/alternatives/risks/poc/roadmap). Single per project; no links to conclusions/experiments/results; no priority; not multi. |
+| 21 | Analysis | **COMPLETE** (Phase D) | `Analysis` (`models/analysis.py`): per-item classification FACT/INTERPRETATION/INFERENCE/HYPOTHESIS/OPINION, grounded (≥1) in existing claim/source/result refs — a Result reaches evidence THROUGH Analysis, not as a Source. CRUD `api/rnd.py`; report `## Analysis` from rows; tests `test_rnd_phase_d.py`. |
+| 22 | Conclusions | **COMPLETE** (Phase D) | `Conclusion` (`models/analysis.py`): classification proven…disproved; links analyses/claims/sources/questions + contradicting claims; never auto-promoted; confidence nullable. Report `## Conclusions` from rows (not prose). |
+| 23 | Recommendations | **COMPLETE** (Phase D, extended) | `Recommendation` gains additive `conclusion_ids`/`analysis_ids`/`result_ids`/`experiment_ids`/`priority`/`expected_benefit`/`tradeoffs` (via `_ADDED_COLUMNS`); existing auto-generated rec preserved; linked via `PATCH .../recommendation/links`. (Multiple-rec optimization still out of scope.) |
 | 24 | References | **COMPLETE** | `Source` rows rendered in report `## Sources`. |
 | 25 | Research Timeline | **MISSING** | No structured, queryable timeline of lifecycle events. |
 | 26 | Research Log | **PARTIAL** | `AuditLog` records coarse actions (create/start/stop/export/retry). Not a per-research decision/search/rejection/experiment log. |

@@ -414,6 +414,27 @@ new KG types go in the extensible `knowledge/registry.py` (migration-free).
   (`components/ExperimentsPanel.tsx`; planned experiments labelled "Not executed", execution details
   shown only when recorded, structured metric values rendered). Tests: `test_rnd_phase_c.py` (18) +
   frontend `ExperimentsPanel.test.tsx` (4). Docs: `docs/RND-PHASE-C-*`.
+- **Phase D (done): analysis, conclusions & recommendation extension.** `models/analysis.py` adds
+  `Analysis` (classified fact|interpretation|inference|hypothesis|opinion; grounded by reference to
+  existing claims/sources/results — the API **requires ≥1**, so a Result enters the evidence-backed
+  world **through Analysis**, never as a Source; a `fact` label does not make it verified) and
+  `Conclusion` (classified proven|…|disproved; links analyses/claims; never auto-promoted; confidence
+  nullable). `Recommendation` **extended additively** (`_ADDED_COLUMNS`): `conclusion_ids`/
+  `analysis_ids`/`result_ids`/`experiment_ids`/`priority`/`expected_benefit`/`tradeoffs` — the
+  auto-generated recommendation is preserved; links are set by an explicit `PATCH /research/{id}/
+  recommendation/links`. CRUD in `app/api/rnd.py` (`.../analysis`, `.../conclusions`) reusing
+  `_get_project` + a generalized `_validate_object_links`/`_LIST_REF_MODELS` (cross-project → 422,
+  cross-user → 404). **Report truthfulness fix:** `report.py` now injects `## Analysis`/`##
+  Conclusions` **from rows** (source of truth, never regenerated prose) and the narrative gate is
+  tightened — sources-but-no-claims/findings emits a "No evidence-backed conclusions available"
+  notice (`conclusions_unsupported`) instead of LLM prose; zero-evidence protection preserved. KG
+  registry gained `analysis`/`conclusion`/`recommendation` types + `analyzes`/`interprets`/`based_on`/
+  `informed_by` predicates (**vocabulary only; emission Phase G**). Analysis/Conclusion diff/memory/
+  monitoring inclusion is **deferred** (the existing rec/claim diff+significance already propagates
+  new-evidence→affected-recommendation). Frontend: an **Analysis & Conclusions tab**
+  (`components/AnalysisPanel.tsx`; classification badges, grounding required in the create controls)
+  + RecommendationTab shows priority/expected-benefit/traceability. Tests: `test_rnd_phase_d.py` (19)
+  + frontend `AnalysisPanel.test.tsx` (4). Docs: `docs/RND-PHASE-D-*`.
 
 ### Report is assembled deterministically from structured data
 The report LLM writes ONLY interpretive prose (Executive Summary / Key Findings / Detailed Analysis /
@@ -508,7 +529,7 @@ mark-read/read-all/delete). **Frontend:** `pages/Scheduled.tsx`, `pages/Notifica
 Not yet built (remaining Phase 7): the **Postgres/Redis** swap (SQLite → Postgres, in-process SSE bus →
 Redis pub/sub, in-process scheduler → Redis/Celery beat — all already behind seams). `net.validate_url`
 exists as the SSRF control for any new outbound-fetch path — route new fetches through it. A pytest suite
-(`backend/tests/`, 406 tests) covers units, API, middleware, auth + access control, schedules,
+(`backend/tests/`, 425 tests) covers units, API, middleware, auth + access control, schedules,
 notifications, the evidence engine (freshness, scoring, contradiction agent, evidence API),
 Document RAG (parsing, chunking, upload security, service, documents API, offline+hybrid pipeline),
 research memory/again/diff (diff engine, lineage, immutability, carry-forward, migration),
@@ -524,7 +545,7 @@ equivalence, cross-user + no-dangerous-tool security), production hardening (`te
 pagination-bounds regression, offline-suite guard, embedding/graph failure injection, DB integrity,
 CPU/Ollama Stage-1-no-LLM budget, full-lifecycle + REST/MCP external E2E) and the **research-quality
 benchmark** (`test_benchmark.py` asserts the benchmark's thresholds so quality can't silently regress),
-and the full faked pipeline — run it before and after changes (see Commands). The **frontend** now also has a Vitest suite (`frontend/`, `npm test`, 69
+and the full faked pipeline — run it before and after changes (see Commands). The **frontend** now also has a Vitest suite (`frontend/`, `npm test`, 73
 tests: evidence + provenance + monitoring + knowledge-graph mapping, `ClaimsTab` + `DocumentsPanel` DOM
 behavior, RunDiff + History lineage + LineageBar, Research Health banner, MonitorCheckRow drill-down,
 EntityDetail, Integrations).
@@ -628,7 +649,7 @@ cp .env.example .env                                       # set TAVILY_API_KEY,
   `TAVILY_API_KEY` or a running SearXNG; papers = arXiv). Writes `evaluation/live_web/results/`
   (git-ignored). Its **offline** guarantees (isolation/provenance/failure/metrics/security) are asserted
   by `tests/test_live_web_eval.py`.
-- **Tests:** `pip install -r requirements-dev.txt` then `.venv/Scripts/python -m pytest` (406 tests,
+- **Tests:** `pip install -r requirements-dev.txt` then `.venv/Scripts/python -m pytest` (425 tests,
   ~135s, all offline). Config in `pytest.ini` (`asyncio_mode=auto`). `tests/conftest.py` binds an
   isolated temp SQLite DB + Qdrant path via env before app import (incl. `AUTH_ENABLED=true` +
   `JWT_SECRET`), and provides fixtures: `client` (ASGI, **auto-registers a user and attaches its bearer

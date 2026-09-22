@@ -1436,6 +1436,15 @@ async def _build_report(project_id, provider, source_health: dict | None = None)
                 select(Recommendation).where(Recommendation.project_id == project_id)
             )
         ).scalars().first()
+        # Phase D — structured Analysis/Conclusion rows (user/agent authored via the R&D API). The
+        # report projects them deterministically; absent on a plain run, so the sections don't appear.
+        from app.models import Analysis, Conclusion
+        analyses = (
+            await db.execute(select(Analysis).where(Analysis.project_id == project_id))
+        ).scalars().all()
+        conclusions = (
+            await db.execute(select(Conclusion).where(Conclusion.project_id == project_id))
+        ).scalars().all()
 
     data = report.ReportInput(
         objective=proj.objective or proj.query,
@@ -1495,6 +1504,16 @@ async def _build_report(project_id, provider, source_health: dict | None = None)
         mode=proj.mode.value,
         as_of=datetime.now(timezone.utc).date().isoformat(),
         source_health=source_health,
+        analysis=[
+            {"title": a.title, "statement": a.statement,
+             "classification": a.classification, "confidence": a.confidence}
+            for a in analyses
+        ],
+        conclusions=[
+            {"title": c.title, "statement": c.statement,
+             "classification": c.classification, "confidence": c.confidence}
+            for c in conclusions
+        ],
     )
     report_md, meta = await report.generate_report(provider, data)
     if source_health:

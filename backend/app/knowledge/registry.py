@@ -28,6 +28,9 @@ ENTITY_TYPES = {
     "experiment",  # Phase C
     "dataset",     # Phase C
     "result",      # Phase C
+    "analysis",        # Phase D
+    "conclusion",      # Phase D
+    "recommendation",  # Phase D
     "other",
 }
 DEFAULT_ENTITY_TYPE = "other"
@@ -63,6 +66,11 @@ PREDICATES = {
     "uses_dataset",
     "produces",
     "tests",
+    # Phase D predicates (vocabulary only; builder emission is Phase G).
+    "analyzes",
+    "interprets",
+    "based_on",
+    "informed_by",
 }
 DEFAULT_PREDICATE = "related_to"
 

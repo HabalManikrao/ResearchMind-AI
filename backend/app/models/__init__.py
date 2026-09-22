@@ -9,6 +9,7 @@ from app.models.enums import (
     ResearchMode,
     TaskStatus,
 )
+from app.models.analysis import Analysis, Conclusion
 from app.models.brief import Constraint, Objective, ResearchBrief, Terminology
 from app.models.cache import CachedSource
 from app.models.document import Document, DocumentChunk
@@ -42,10 +43,12 @@ __all__ = [
     "ProjectStatus",
     "ResearchMode",
     "TaskStatus",
+    "Analysis",
     "AuditLog",
     "CachedSource",
     "Claim",
     "ClaimSource",
+    "Conclusion",
     "Conflict",
     "Constraint",
     "Dataset",

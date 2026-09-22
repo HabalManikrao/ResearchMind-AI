@@ -64,6 +64,20 @@ _EVIDENCE_INCOMPLETE_NOTICE = (
 )
 
 
+# Shown when sources WERE collected but nothing was extracted from them (zero claims AND zero
+# findings). Source existence is not conclusion evidence (Phase D truthfulness fix): without
+# structured claims/findings the narrative must not present evidence-backed conclusions.
+_NO_STRUCTURED_EVIDENCE_NOTICE = (
+    "## Research Status\n\n"
+    "> ⚠️ **No evidence-backed conclusions available.**\n"
+    ">\n"
+    "> Sources were collected for this run, but no verified claims or findings were extracted "
+    "from them, so **no evidence-backed conclusions or recommendations can be drawn**. The sources "
+    "below are listed for transparency; treat any interpretation as unverified until claims are "
+    "established.\n"
+)
+
+
 @dataclass
 class ReportInput:
     objective: str
@@ -78,6 +92,10 @@ class ReportInput:
     mode: str = ""  # ResearchMode value; "market" switches to the market layout
     as_of: str | None = None  # snapshot date for Market Intelligence mode
     source_health: dict | None = None  # #5 live/cached/local/unavailable summary
+    # Phase D — structured Analysis/Conclusion rows. The report projects these deterministically;
+    # they are the source of truth, never regenerated as prose.
+    analysis: list[dict] = field(default_factory=list)  # {title, statement, classification, confidence}
+    conclusions: list[dict] = field(default_factory=list)  # {title, statement, classification, confidence}
 
 
 async def generate_report(provider: AIProvider, data: ReportInput) -> tuple[str, dict]:
@@ -91,8 +109,14 @@ async def generate_report(provider: AIProvider, data: ReportInput) -> tuple[str,
     # can distinguish this from a real result. The run still COMPLETED (resilience is intact);
     # objective/questions/health/sources(none)/confidence(0) all remain visible (spec §3, §7).
     evidence_incomplete = not data.sources
+    # Phase D truthfulness gate: sources exist but nothing was extracted (no claims AND no findings).
+    # Source existence is NOT conclusion evidence — skip the LLM narrative so unsupported prose can't
+    # read as evidence-backed conclusions.
+    conclusions_unsupported = bool(data.sources) and not data.claims and not data.findings
     if evidence_incomplete:
         narrative = _EVIDENCE_INCOMPLETE_NOTICE
+    elif conclusions_unsupported:
+        narrative = _NO_STRUCTURED_EVIDENCE_NOTICE
     else:
         claims_block = "\n".join(
             f"- [{c['status']}] ({c['confidence']}%) {c['text']}" for c in data.claims
@@ -116,6 +140,7 @@ async def generate_report(provider: AIProvider, data: ReportInput) -> tuple[str,
         data, verified_count=len(verified), conflicted_count=len(data.conflicts)
     )
     meta["evidence_incomplete"] = evidence_incomplete
+    meta["conclusions_unsupported"] = conclusions_unsupported
     return report_md, meta
 
 
@@ -181,11 +206,45 @@ def _assemble(data: ReportInput, narrative: str) -> str:
         + _health_md(data)
         + narrative.strip()
         + "\n"
+        + _analysis_conclusions_md(data)
         + _rd_md(data)
         + conflicts_md
         + sources_md
         + conf_md
     )
+
+
+_CLASSIFICATION_LABELS = {
+    "fact": "Fact", "interpretation": "Interpretation", "inference": "Inference",
+    "hypothesis": "Hypothesis", "opinion": "Opinion",
+    "proven": "Proven", "strongly_supported": "Strongly supported", "supported": "Supported",
+    "weakly_supported": "Weakly supported", "inconclusive": "Inconclusive", "unknown": "Unknown",
+    "contradicted": "Contradicted", "disproved": "Disproved",
+}
+
+
+def _analysis_conclusions_md(data: ReportInput) -> str:
+    """Deterministic Analysis / Conclusions sections, projected straight from persisted rows (Phase
+    D). Rendered ONLY when rows exist, so a run without structured analysis/conclusions is unchanged.
+    The structured records are the source of truth — this is never model-generated prose."""
+    md = ""
+    if data.analysis:
+        md += "\n## Analysis\n\n"
+        for a in data.analysis:
+            label = _CLASSIFICATION_LABELS.get(a.get("classification", ""), a.get("classification", ""))
+            conf = a.get("confidence")
+            conf_str = f" _(confidence {round(conf)}%)_" if conf is not None else ""
+            title = f"**{a['title']}** — " if a.get("title") else ""
+            md += f"- _[{label}]_ {title}{a.get('statement', '')}{conf_str}\n"
+    if data.conclusions:
+        md += "\n## Conclusions\n\n"
+        for c in data.conclusions:
+            label = _CLASSIFICATION_LABELS.get(c.get("classification", ""), c.get("classification", ""))
+            conf = c.get("confidence")
+            conf_str = f" _(confidence {round(conf)}%)_" if conf is not None else ""
+            title = f"**{c['title']}** — " if c.get("title") else ""
+            md += f"- _[{label}]_ {title}{c.get('statement', '')}{conf_str}\n"
+    return md
 
 
 _HEALTH_LABELS = {

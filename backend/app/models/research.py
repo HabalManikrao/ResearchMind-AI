@@ -369,6 +369,16 @@ class Recommendation(Base, TimestampMixin):
     risks: Mapped[list] = mapped_column(JSON, default=list)  # list[str]
     proof_of_concept: Mapped[str] = mapped_column(Text, default="")
     roadmap: Mapped[list] = mapped_column(JSON, default=list)  # [{"step","detail"}]
+    # R&D layer Phase D — additive traceability links + priority. All nullable/defaulted so existing
+    # (auto-generated) recommendations stay valid; the pipeline never sets them, they're added by an
+    # explicit link action. Connect the recommendation to the structured chain it rests on.
+    conclusion_ids: Mapped[list] = mapped_column(JSON, default=list)
+    analysis_ids: Mapped[list] = mapped_column(JSON, default=list)
+    result_ids: Mapped[list] = mapped_column(JSON, default=list)
+    experiment_ids: Mapped[list] = mapped_column(JSON, default=list)
+    priority: Mapped[str | None] = mapped_column(String(20), nullable=True)  # e.g. high|medium|low
+    expected_benefit: Mapped[str] = mapped_column(Text, default="")
+    tradeoffs: Mapped[list] = mapped_column(JSON, default=list)
 
     project: Mapped[ResearchProject] = relationship()
 

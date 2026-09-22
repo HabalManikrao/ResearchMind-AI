@@ -3,6 +3,8 @@ import type {
   Claim,
   ClaimEvidenceResponse,
   Connectivity,
+  Analysis,
+  Conclusion,
   Conflict,
   Constraint,
   CreateResearch,
@@ -201,6 +203,41 @@ export const api = {
     req<Result>(`/research/${id}/results/${rid}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteResult: (id: string, rid: string) =>
     req<void>(`/research/${id}/results/${rid}`, { method: "DELETE" }),
+
+  // --- R&D layer Phase D: Analysis, Conclusions, Recommendation links --- //
+  analyses: (id: string) => req<Analysis[]>(`/research/${id}/analysis`),
+  createAnalysis: (id: string, body: Partial<Analysis>) =>
+    req<Analysis>(`/research/${id}/analysis`, { method: "POST", body: JSON.stringify(body) }),
+  updateAnalysis: (id: string, aid: string, patch: Partial<Analysis>) =>
+    req<Analysis>(`/research/${id}/analysis/${aid}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deleteAnalysis: (id: string, aid: string) =>
+    req<void>(`/research/${id}/analysis/${aid}`, { method: "DELETE" }),
+  conclusions: (id: string) => req<Conclusion[]>(`/research/${id}/conclusions`),
+  createConclusion: (id: string, body: Partial<Conclusion>) =>
+    req<Conclusion>(`/research/${id}/conclusions`, { method: "POST", body: JSON.stringify(body) }),
+  updateConclusion: (id: string, cid: string, patch: Partial<Conclusion>) =>
+    req<Conclusion>(`/research/${id}/conclusions/${cid}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+  deleteConclusion: (id: string, cid: string) =>
+    req<void>(`/research/${id}/conclusions/${cid}`, { method: "DELETE" }),
+  updateRecommendationLinks: (
+    id: string,
+    body: {
+      conclusion_ids?: string[];
+      analysis_ids?: string[];
+      result_ids?: string[];
+      experiment_ids?: string[];
+      priority?: string;
+      expected_benefit?: string;
+      tradeoffs?: string[];
+    },
+  ) =>
+    req<Recommendation>(`/research/${id}/recommendation/links`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
   tasks: (id: string) => req<Task[]>(`/research/${id}/tasks`),
   sources: (id: string) => req<Source[]>(`/research/${id}/sources`),
   claims: (id: string) => req<Claim[]>(`/research/${id}/claims`),

@@ -14,13 +14,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.research import _get_project
 from app.database import get_db
 from app.models import (
+    Analysis,
     Claim,
+    Conclusion,
     Constraint,
     Dataset,
     Experiment,
     Hypothesis,
     Method,
     Objective,
+    Recommendation,
     ResearchBrief,
     ResearchQuestion,
     Result,
@@ -29,6 +32,12 @@ from app.models import (
     User,
 )
 from app.schemas.research import (
+    AnalysisCreate,
+    AnalysisOut,
+    AnalysisUpdate,
+    ConclusionCreate,
+    ConclusionOut,
+    ConclusionUpdate,
     ConstraintCreate,
     ConstraintOut,
     DatasetCreate,
@@ -46,6 +55,8 @@ from app.schemas.research import (
     ObjectiveCreate,
     ObjectiveOut,
     ObjectiveUpdate,
+    RecommendationLinksUpdate,
+    RecommendationOut,
     ResearchBriefOut,
     ResearchBriefUpdate,
     ResultCreate,
@@ -333,15 +344,27 @@ _SINGLE_REF_MODELS = {
     "experiment_id": Experiment,
 }
 
+# List-id relationship fields → the model each element must reference (all project-scoped).
+_LIST_REF_MODELS = {
+    "source_ids": Source,
+    "claim_ids": Claim,
+    "question_ids": ResearchQuestion,
+    "objective_ids": Objective,
+    "result_ids": Result,
+    "experiment_ids": Experiment,
+    "analysis_ids": Analysis,
+    "conclusion_ids": Conclusion,
+    "contradicting_claim_ids": Claim,
+}
+
 
 async def _validate_object_links(db, project_id, data: dict) -> None:
     """Validate every relationship id in a create/update payload against this project, so a client
     can never attach another project's/user's object (list refs → 422 with the offending ids;
     single-id refs → 422). Only keys actually present in `data` are checked."""
-    await _validate_refs(db, project_id, Source, data.get("source_ids"), "source_ids")
-    await _validate_refs(db, project_id, Claim, data.get("claim_ids"), "claim_ids")
-    await _validate_refs(db, project_id, ResearchQuestion, data.get("question_ids"), "question_ids")
-    await _validate_refs(db, project_id, Objective, data.get("objective_ids"), "objective_ids")
+    for field, model in _LIST_REF_MODELS.items():
+        if field in data:
+            await _validate_refs(db, project_id, model, data.get(field), field)
     for field, model in _SINGLE_REF_MODELS.items():
         if field in data:
             await _validate_single_ref(db, project_id, model, data.get(field), field)
@@ -762,3 +785,220 @@ async def delete_result(
     row = await _get_owned_result(db, project_id, result_id, user)
     await db.delete(row)
     await db.commit()
+
+
+# --------------------------------------------------------------------------- #
+# Phase D — Analysis. Grounded by reference to EXISTING claims/sources/results (>=1 required), so an
+# experimental Result enters the evidence-backed world THROUGH Analysis — a Result is never a Source.
+# A classification of "fact" does not make it verified; grounding is the links, not the label.
+# --------------------------------------------------------------------------- #
+def _require_grounding(fields: dict, keys: tuple[str, ...], label: str) -> None:
+    if not any(fields.get(k) for k in keys):
+        raise HTTPException(
+            422, f"An {label} must reference at least one of: {', '.join(keys)}"
+        )
+
+
+@router.get("/{project_id}/analysis", response_model=list[AnalysisOut])
+async def list_analysis(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await _get_project(db, project_id, user)
+    return (
+        await db.execute(
+            select(Analysis).where(Analysis.project_id == project_id).order_by(Analysis.created_at)
+        )
+    ).scalars().all()
+
+
+@router.post("/{project_id}/analysis", response_model=AnalysisOut, status_code=201)
+async def create_analysis(
+    project_id: str,
+    body: AnalysisCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await _get_project(db, project_id, user)
+    data = body.model_dump()
+    # Grounding: an analysis must connect to real evidence (claim/source/result) — never ungrounded.
+    _require_grounding(data, ("claim_ids", "source_ids", "result_ids"), "analysis")
+    await _validate_object_links(db, project_id, data)
+    row = Analysis(project_id=project_id, **data)
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+async def _get_owned_analysis(db, project_id, analysis_id, user) -> Analysis:
+    await _get_project(db, project_id, user)
+    row = await db.get(Analysis, analysis_id)
+    if row is None or row.project_id != project_id:
+        raise HTTPException(404, "Analysis not found")
+    return row
+
+
+@router.get("/{project_id}/analysis/{analysis_id}", response_model=AnalysisOut)
+async def get_analysis(
+    project_id: str,
+    analysis_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return await _get_owned_analysis(db, project_id, analysis_id, user)
+
+
+@router.patch("/{project_id}/analysis/{analysis_id}", response_model=AnalysisOut)
+async def update_analysis(
+    project_id: str,
+    analysis_id: str,
+    body: AnalysisUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    row = await _get_owned_analysis(db, project_id, analysis_id, user)
+    changed = body.model_dump(exclude_unset=True)
+    await _validate_object_links(db, project_id, changed)
+    for field, value in changed.items():
+        setattr(row, field, value)
+    # Grounding must still hold after an edit that touches the grounding fields.
+    if {"claim_ids", "source_ids", "result_ids"} & set(changed):
+        _require_grounding(
+            {"claim_ids": row.claim_ids, "source_ids": row.source_ids, "result_ids": row.result_ids},
+            ("claim_ids", "source_ids", "result_ids"), "analysis",
+        )
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+@router.delete("/{project_id}/analysis/{analysis_id}", status_code=204)
+async def delete_analysis(
+    project_id: str,
+    analysis_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    row = await _get_owned_analysis(db, project_id, analysis_id, user)
+    await db.delete(row)
+    await db.commit()
+
+
+# --------------------------------------------------------------------------- #
+# Phase D — Conclusions. Traceable to >=1 analysis or claim; classification never auto-promoted;
+# confidence nullable (absence preserved).
+# --------------------------------------------------------------------------- #
+@router.get("/{project_id}/conclusions", response_model=list[ConclusionOut])
+async def list_conclusions(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await _get_project(db, project_id, user)
+    return (
+        await db.execute(
+            select(Conclusion).where(Conclusion.project_id == project_id)
+            .order_by(Conclusion.created_at)
+        )
+    ).scalars().all()
+
+
+@router.post("/{project_id}/conclusions", response_model=ConclusionOut, status_code=201)
+async def create_conclusion(
+    project_id: str,
+    body: ConclusionCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await _get_project(db, project_id, user)
+    data = body.model_dump()
+    # Grounding: a conclusion must rest on at least one analysis or claim.
+    _require_grounding(data, ("analysis_ids", "claim_ids"), "conclusion")
+    await _validate_object_links(db, project_id, data)
+    row = Conclusion(project_id=project_id, **data)
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+async def _get_owned_conclusion(db, project_id, conclusion_id, user) -> Conclusion:
+    await _get_project(db, project_id, user)
+    row = await db.get(Conclusion, conclusion_id)
+    if row is None or row.project_id != project_id:
+        raise HTTPException(404, "Conclusion not found")
+    return row
+
+
+@router.get("/{project_id}/conclusions/{conclusion_id}", response_model=ConclusionOut)
+async def get_conclusion(
+    project_id: str,
+    conclusion_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return await _get_owned_conclusion(db, project_id, conclusion_id, user)
+
+
+@router.patch("/{project_id}/conclusions/{conclusion_id}", response_model=ConclusionOut)
+async def update_conclusion(
+    project_id: str,
+    conclusion_id: str,
+    body: ConclusionUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    row = await _get_owned_conclusion(db, project_id, conclusion_id, user)
+    changed = body.model_dump(exclude_unset=True)
+    await _validate_object_links(db, project_id, changed)
+    for field, value in changed.items():
+        setattr(row, field, value)
+    if {"analysis_ids", "claim_ids"} & set(changed):
+        _require_grounding(
+            {"analysis_ids": row.analysis_ids, "claim_ids": row.claim_ids},
+            ("analysis_ids", "claim_ids"), "conclusion",
+        )
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+@router.delete("/{project_id}/conclusions/{conclusion_id}", status_code=204)
+async def delete_conclusion(
+    project_id: str,
+    conclusion_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    row = await _get_owned_conclusion(db, project_id, conclusion_id, user)
+    await db.delete(row)
+    await db.commit()
+
+
+# --------------------------------------------------------------------------- #
+# Phase D — link the (auto-generated) recommendation into the structured chain. Additive only:
+# never rewrites recommended_option/rationale/confidence (those remain pipeline-owned). Read is the
+# existing GET /research/{id}/recommendation in research.py.
+# --------------------------------------------------------------------------- #
+@router.patch("/{project_id}/recommendation/links", response_model=RecommendationOut)
+async def update_recommendation_links(
+    project_id: str,
+    body: RecommendationLinksUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await _get_project(db, project_id, user)
+    rec = (
+        await db.execute(select(Recommendation).where(Recommendation.project_id == project_id))
+    ).scalars().first()
+    if rec is None:
+        raise HTTPException(404, "No recommendation to link for this project")
+    changed = body.model_dump(exclude_unset=True)
+    await _validate_object_links(db, project_id, changed)  # conclusion/analysis/result/experiment refs
+    for field, value in changed.items():
+        setattr(rec, field, value)
+    await db.commit()
+    await db.refresh(rec)
+    return rec
