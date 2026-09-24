@@ -4,6 +4,7 @@ import type {
   ClaimEvidenceResponse,
   Connectivity,
   Analysis,
+  Comparison,
   Conclusion,
   Conflict,
   Constraint,
@@ -11,6 +12,7 @@ import type {
   Dataset,
   Experiment,
   Hypothesis,
+  Limitation,
   Method,
   Result,
   DocumentItem,
@@ -238,6 +240,28 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(body),
     }),
+
+  // --- R&D layer Phase E: Comparisons, Limitations, Knowledge Gaps --- //
+  comparisons: (id: string) => req<Comparison[]>(`/research/${id}/comparisons`),
+  createComparison: (id: string, body: Partial<Comparison>) =>
+    req<Comparison>(`/research/${id}/comparisons`, { method: "POST", body: JSON.stringify(body) }),
+  updateComparison: (id: string, cid: string, patch: Partial<Comparison>) =>
+    req<Comparison>(`/research/${id}/comparisons/${cid}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deleteComparison: (id: string, cid: string) =>
+    req<void>(`/research/${id}/comparisons/${cid}`, { method: "DELETE" }),
+  limitations: (id: string) => req<Limitation[]>(`/research/${id}/limitations`),
+  createLimitation: (id: string, body: Partial<Limitation>) =>
+    req<Limitation>(`/research/${id}/limitations`, { method: "POST", body: JSON.stringify(body) }),
+  updateLimitation: (id: string, lid: string, patch: Partial<Limitation>) =>
+    req<Limitation>(`/research/${id}/limitations/${lid}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deleteLimitation: (id: string, lid: string) =>
+    req<void>(`/research/${id}/limitations/${lid}`, { method: "DELETE" }),
+  createGap: (id: string, body: Partial<KnowledgeGap>) =>
+    req<KnowledgeGap>(`/research/${id}/gaps`, { method: "POST", body: JSON.stringify(body) }),
+  updateGap: (id: string, gid: string, patch: Partial<KnowledgeGap>) =>
+    req<KnowledgeGap>(`/research/${id}/gaps/${gid}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deleteGap: (id: string, gid: string) =>
+    req<void>(`/research/${id}/gaps/${gid}`, { method: "DELETE" }),
   tasks: (id: string) => req<Task[]>(`/research/${id}/tasks`),
   sources: (id: string) => req<Source[]>(`/research/${id}/sources`),
   claims: (id: string) => req<Claim[]>(`/research/${id}/claims`),

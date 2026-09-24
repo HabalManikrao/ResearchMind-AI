@@ -42,7 +42,12 @@ ResearchLog/Checkpoint/Reproducibility/Analysis/Limitation/Comparison/ResearchBr
 - **Phase C (commit `8fafa26`):** Experiments → **COMPLETE**; Datasets → **COMPLETE**; structured
   Results → **COMPLETE**. See `models/experiment.py` (Dataset/Experiment/Result), `api/rnd.py`,
   `RND-PHASE-C-*`. KG vocabulary added; builder emission deferred to Phase G.
-- **Phase D (this change):** Analysis → **COMPLETE**; Conclusions → **COMPLETE**; Recommendation
+- **Phase E (this change):** Comparisons → **COMPLETE** (first-class atomic); Limitations →
+  **COMPLETE** (first-class cross-cutting); Research Gaps → **COMPLETE** (extended `KnowledgeGap` +
+  write API). See `models/analysis.py` (Comparison/Limitation), extended `KnowledgeGap`, `api/rnd.py`,
+  `agents/report.py`, `RND-PHASE-E-*`. KG vocabulary added; emission Phase G. Diff/memory/monitoring
+  inclusion deferred.
+- **Phase D (commit `eb3d5a1`):** Analysis → **COMPLETE**; Conclusions → **COMPLETE**; Recommendation
   traceability → **COMPLETE** (extended, not replaced); Result→Evidence-via-Analysis → **COMPLETE**;
   report Analysis/Conclusions from rows + truthfulness gate → **COMPLETE**. See `models/analysis.py`,
   `api/rnd.py`, `agents/report.py`, `RND-PHASE-D-AUDIT.md` + `RND-PHASE-D-IMPLEMENTATION-REPORT.md`.
@@ -68,10 +73,10 @@ ResearchLog/Checkpoint/Reproducibility/Analysis/Limitation/Comparison/ResearchBr
 | 13 | Experiments | **COMPLETE** (Phase C) | `Experiment` (`models/experiment.py`): design + reproducibility metadata + execution record; FKs to question/objective/hypothesis/method/dataset; status proposed→inconclusive, **never auto-advances**; execution fields recorded only by explicit PATCH. CRUD `api/rnd.py`; tests `test_rnd_phase_c.py`. |
 | 14 | Datasets | **COMPLETE** (Phase C) | `Dataset` (`models/experiment.py`): name/version/source/license/size/record_count/features/collection/preprocessing/bias/limitations/quality/access/checksum/origin. **Version-distinguishable** (new row + `supersedes_id`; never overwritten). |
 | 15 | Results (structured) | **COMPLETE** (Phase C) | `Result` (`models/experiment.py`): attributed to `experiment_id`; structured `metrics=[{name,value,unit,lower_bound,upper_bound,conditions}]` + measurements/observations/anomalies/resource_usage + nullable accuracy/latency/…; recorded only explicitly. |
-| 16 | Comparisons | **PARTIAL** | `Solution` + `scores` + `rd_analysis` produce a comparison **table**, but no first-class `Comparison` record (subject A/B, criterion, value, unit, evidence/experiment/result links). |
+| 16 | Comparisons | **COMPLETE** (Phase E) | `Comparison` (`models/analysis.py`): subject_a/subject_b/criterion/value/unit/conditions + source/experiment/result links; `grounded` computed (ungrounded flagged in report). Coexists with `Solution` matrix. CRUD `api/rnd.py`; tests `test_rnd_phase_e.py`. |
 | 17 | Conflicts | **COMPLETE** | `Conflict` + `contradiction` agent + CONTRADICTS links. |
-| 18 | Limitations | **MISSING** | No structured `Limitation` (type/severity/affected object/mitigation). Some reasons live inside `confidence_meta`. |
-| 19 | Research Gaps | **PARTIAL** | `KnowledgeGap` (`question, reason, followup_query, round, resolved`). Missing importance/impact/missing-evidence/related links/status. |
+| 18 | Limitations | **COMPLETE** (Phase E) | `Limitation` (`models/analysis.py`): type(8 levels)/severity/affected-object(validated)/impact/mitigation/status + source/claim links. Inline `Method.limitations`/`Dataset.limitations` note-lists retained. CRUD `api/rnd.py`. |
+| 19 | Research Gaps | **COMPLETE** (Phase E, extended) | `KnowledgeGap` extended (`_ADDED_COLUMNS`): importance/impact/potential_investigation/status/confidence/origin + question/hypothesis/experiment/claim/conclusion/source links; write API added. Auto-generated gaps preserved; a gap is an open question, never a verified claim. |
 | 20 | Hypotheses | **COMPLETE** (Phase B) | `Hypothesis` (`models/experiment.py`): statement/reasoning/status(proposed…inconclusive)/confidence/origin + links to questions/objectives/claims/sources + optional method_id + variables/expected_result. Distinct from `Claim`; never auto-advances. CRUD `api/rnd.py`; tests `test_rnd_phase_b.py`. |
 | 21 | Analysis | **COMPLETE** (Phase D) | `Analysis` (`models/analysis.py`): per-item classification FACT/INTERPRETATION/INFERENCE/HYPOTHESIS/OPINION, grounded (≥1) in existing claim/source/result refs — a Result reaches evidence THROUGH Analysis, not as a Source. CRUD `api/rnd.py`; report `## Analysis` from rows; tests `test_rnd_phase_d.py`. |
 | 22 | Conclusions | **COMPLETE** (Phase D) | `Conclusion` (`models/analysis.py`): classification proven…disproved; links analyses/claims/sources/questions + contradicting claims; never auto-promoted; confidence nullable. Report `## Conclusions` from rows (not prose). |

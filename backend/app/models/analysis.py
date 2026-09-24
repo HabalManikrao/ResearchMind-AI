@@ -83,3 +83,69 @@ class Conclusion(Base, TimestampMixin):
     question_ids: Mapped[list] = mapped_column(JSON, default=list)
     contradicting_claim_ids: Mapped[list] = mapped_column(JSON, default=list)
     notes: Mapped[str] = mapped_column(Text, default="")
+
+
+# --------------------------------------------------------------------------- #
+# Phase E — Comparisons & Limitations (Research Gaps extend the existing KnowledgeGap).
+# --------------------------------------------------------------------------- #
+class Comparison(Base, TimestampMixin):
+    """An atomic, evidence-linked comparison data point (spec §16) — distinct from the qualitative
+    `Solution` matrix used for the recommendation. A value is only evidence-backed when it references
+    an existing source/experiment/result; otherwise it is explicitly recorded as ungrounded
+    (`grounded=False`). Numeric values are never inferred from prose — they are recorded here as data.
+    """
+
+    __tablename__ = "comparisons"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("research_projects.id", ondelete="CASCADE"), index=True
+    )
+    title: Mapped[str] = mapped_column(String(500), default="")
+    description: Mapped[str] = mapped_column(Text, default="")
+    subject_a: Mapped[str] = mapped_column(String(500))
+    subject_b: Mapped[str | None] = mapped_column(String(500), nullable=True)  # optional A-vs-B
+    criterion: Mapped[str] = mapped_column(String(300), default="")
+    value: Mapped[str] = mapped_column(Text, default="")  # recorded value (string keeps units/ranges)
+    unit: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    conditions: Mapped[str] = mapped_column(Text, default="")
+    # Whether this value rests on a recorded source/experiment/result (set by the API from the links).
+    grounded: Mapped[bool] = mapped_column(default=False)
+    # Traceability to EXISTING objects (reuse; never a second evidence system).
+    source_ids: Mapped[list] = mapped_column(JSON, default=list)
+    experiment_ids: Mapped[list] = mapped_column(JSON, default=list)
+    result_ids: Mapped[list] = mapped_column(JSON, default=list)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)  # 0-100; None if unset
+    origin: Mapped[str] = mapped_column(String(20), default="user")  # user|agent|derived
+    notes: Mapped[str] = mapped_column(Text, default="")
+
+
+class Limitation(Base, TimestampMixin):
+    """A cross-cutting, traceable limitation (spec §17). Complements — does not replace — the inline
+    `Method.limitations`/`Dataset.limitations` note-lists and `Result.anomalies`. It references the
+    affected object and (optionally) the evidence for the limitation; `origin` records whether it was
+    manually recorded or agent/evidence-derived (never invented to populate the model)."""
+
+    __tablename__ = "limitations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("research_projects.id", ondelete="CASCADE"), index=True
+    )
+    ltype: Mapped[str] = mapped_column(String(20), default="research")  # source|dataset|method|…
+    title: Mapped[str] = mapped_column(String(500), default="")
+    description: Mapped[str] = mapped_column(Text)
+    severity: Mapped[str] = mapped_column(String(20), default="medium")  # high|medium|low
+    # The affected object (kind + id). `affected_id` is validated to the project when its kind maps to
+    # a project-scoped model; abstract kinds (technology/research/statistical/environmental) may omit it.
+    affected_kind: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    affected_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    impact: Mapped[str] = mapped_column(Text, default="")
+    mitigation: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(20), default="open")  # open|mitigated|accepted|resolved
+    # Evidence for the limitation (existing rows).
+    source_ids: Mapped[list] = mapped_column(JSON, default=list)
+    claim_ids: Mapped[list] = mapped_column(JSON, default=list)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    origin: Mapped[str] = mapped_column(String(20), default="user")
+    notes: Mapped[str] = mapped_column(Text, default="")

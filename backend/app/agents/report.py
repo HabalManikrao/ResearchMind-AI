@@ -96,6 +96,10 @@ class ReportInput:
     # they are the source of truth, never regenerated as prose.
     analysis: list[dict] = field(default_factory=list)  # {title, statement, classification, confidence}
     conclusions: list[dict] = field(default_factory=list)  # {title, statement, classification, confidence}
+    # Phase E — structured Comparisons/Limitations/Research-Gaps rows, projected deterministically.
+    comparisons: list[dict] = field(default_factory=list)
+    limitations: list[dict] = field(default_factory=list)
+    gaps: list[dict] = field(default_factory=list)  # KnowledgeGap rows (open questions, not facts)
 
 
 async def generate_report(provider: AIProvider, data: ReportInput) -> tuple[str, dict]:
@@ -207,11 +211,44 @@ def _assemble(data: ReportInput, narrative: str) -> str:
         + narrative.strip()
         + "\n"
         + _analysis_conclusions_md(data)
+        + _phase_e_md(data)
         + _rd_md(data)
         + conflicts_md
         + sources_md
         + conf_md
     )
+
+
+def _phase_e_md(data: ReportInput) -> str:
+    """Deterministic Comparisons / Limitations / Research Gaps sections from persisted rows (Phase E),
+    rendered ONLY when rows exist. Structured records are the source of truth. Research gaps are
+    presented as OPEN QUESTIONS (never verified facts); an ungrounded comparison value is flagged."""
+    md = ""
+    if data.comparisons:
+        md += "\n## Comparisons\n\n"
+        for c in data.comparisons:
+            subj = c["subject_a"] + (f" vs. {c['subject_b']}" if c.get("subject_b") else "")
+            crit = f" — {c['criterion']}" if c.get("criterion") else ""
+            val = c.get("value", "")
+            unit = f" {c['unit']}" if c.get("unit") else ""
+            flag = "" if c.get("grounded") else " _(ungrounded — no source/experiment/result)_"
+            md += f"- **{subj}**{crit}: {val}{unit}{flag}\n"
+    if data.limitations:
+        md += "\n## Limitations\n\n"
+        for l in data.limitations:
+            sev = l.get("severity", "")
+            title = l.get("title") or l.get("description", "")
+            md += f"- _[{l.get('ltype', '')}/{sev}]_ {title}"
+            if l.get("mitigation"):
+                md += f" — mitigation: {l['mitigation']}"
+            md += f" _(status: {l.get('status', 'open')})_\n"
+    if data.gaps:
+        md += "\n## Research Gaps\n\n"
+        md += "_These are open questions / missing knowledge, not verified findings._\n\n"
+        for g in data.gaps:
+            imp = f" _[importance: {g['importance']}]_" if g.get("importance") else ""
+            md += f"- {g.get('question', '')}{imp}\n"
+    return md
 
 
 _CLASSIFICATION_LABELS = {

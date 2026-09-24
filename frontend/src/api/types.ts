@@ -326,6 +326,73 @@ export interface Conclusion {
   notes: string;
 }
 
+// --- R&D layer Phase E: Comparisons, Limitations, Knowledge Gaps --- //
+export type LimitationType =
+  | "source" | "dataset" | "method" | "experiment"
+  | "technology" | "research" | "statistical" | "environmental";
+export type LimitationSeverity = "high" | "medium" | "low";
+export type LimitationStatus = "open" | "mitigated" | "accepted" | "resolved";
+export type GapStatus = "open" | "investigating" | "addressed" | "wont_fix";
+
+export interface Comparison {
+  id: string;
+  title: string;
+  description: string;
+  subject_a: string;
+  subject_b?: string | null;
+  criterion: string;
+  value: string;
+  unit?: string | null;
+  conditions: string;
+  grounded: boolean;
+  source_ids: string[];
+  experiment_ids: string[];
+  result_ids: string[];
+  confidence?: number | null;
+  origin: string;
+  notes: string;
+}
+
+export interface Limitation {
+  id: string;
+  ltype: LimitationType;
+  title: string;
+  description: string;
+  severity: LimitationSeverity;
+  affected_kind?: string | null;
+  affected_id?: string | null;
+  impact: string;
+  mitigation: string;
+  status: LimitationStatus;
+  source_ids: string[];
+  claim_ids: string[];
+  confidence?: number | null;
+  origin: string;
+  notes: string;
+}
+
+export interface KnowledgeGap {
+  id: string;
+  question: string;
+  reason: string;
+  followup_query: string;
+  round: number;
+  resolved: boolean;
+  // Phase E first-class fields (nullable for auto-generated/legacy rows).
+  importance?: string | null;
+  impact?: string | null;
+  potential_investigation?: string | null;
+  status?: GapStatus | null;
+  confidence?: number | null;
+  origin?: string | null;
+  question_ids?: string[] | null;
+  hypothesis_ids?: string[] | null;
+  experiment_ids?: string[] | null;
+  claim_ids?: string[] | null;
+  conclusion_ids?: string[] | null;
+  source_ids?: string[] | null;
+}
+
 export interface Task {
   id: string;
   agent: string;
@@ -517,15 +584,6 @@ export interface Conflict {
   severity: ConflictSeverity;
   status: ConflictStatus;
   source_ids: string[];
-}
-
-export interface KnowledgeGap {
-  id: string;
-  question: string;
-  reason: string;
-  followup_query: string;
-  round: number;
-  resolved: boolean;
 }
 
 export interface SourceHealth {

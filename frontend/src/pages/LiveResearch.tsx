@@ -44,6 +44,7 @@ import BriefPanel from "../components/BriefPanel";
 import LabPanel from "../components/LabPanel";
 import ExperimentsPanel from "../components/ExperimentsPanel";
 import AnalysisPanel from "../components/AnalysisPanel";
+import SynthesisPanel from "../components/SynthesisPanel";
 import type {
   KnowledgeGraph,
   SourceHealth,
@@ -72,6 +73,7 @@ type Tab =
   | "experiments"
   | "conflicts"
   | "analysis"
+  | "synthesis"
   | "recommendation"
   | "graph"
   | "report"
@@ -206,6 +208,7 @@ export default function LiveResearch() {
     { key: "experiments", label: "Experiments" },
     { key: "conflicts", label: "Conflicts", count: conflicts.length },
     { key: "analysis", label: "Analysis & Conclusions" },
+    { key: "synthesis", label: "Comparisons, Limitations & Gaps" },
     { key: "recommendation", label: "Recommendation" },
     { key: "graph", label: "Graph" },
     { key: "report", label: "Report" },
@@ -298,6 +301,7 @@ export default function LiveResearch() {
       {tab === "experiments" && <ExperimentsPanel projectId={id!} />}
       {tab === "conflicts" && <ConflictsTab conflicts={conflicts} />}
       {tab === "analysis" && <AnalysisPanel projectId={id!} />}
+      {tab === "synthesis" && <SynthesisPanel projectId={id!} />}
       {tab === "recommendation" && (
         <RecommendationTab
           recommendation={recommendation}

@@ -16,11 +16,14 @@ from app.database import get_db
 from app.models import (
     Analysis,
     Claim,
+    Comparison,
     Conclusion,
     Constraint,
     Dataset,
     Experiment,
     Hypothesis,
+    KnowledgeGap,
+    Limitation,
     Method,
     Objective,
     Recommendation,
@@ -38,6 +41,9 @@ from app.schemas.research import (
     ConclusionCreate,
     ConclusionOut,
     ConclusionUpdate,
+    ComparisonCreate,
+    ComparisonOut,
+    ComparisonUpdate,
     ConstraintCreate,
     ConstraintOut,
     DatasetCreate,
@@ -49,6 +55,12 @@ from app.schemas.research import (
     HypothesisCreate,
     HypothesisOut,
     HypothesisUpdate,
+    KnowledgeGapCreate,
+    KnowledgeGapOut,
+    KnowledgeGapUpdate,
+    LimitationCreate,
+    LimitationOut,
+    LimitationUpdate,
     MethodCreate,
     MethodOut,
     MethodUpdate,
@@ -354,8 +366,30 @@ _LIST_REF_MODELS = {
     "experiment_ids": Experiment,
     "analysis_ids": Analysis,
     "conclusion_ids": Conclusion,
+    "hypothesis_ids": Hypothesis,  # Phase E (knowledge-gap links)
     "contradicting_claim_ids": Claim,
 }
+
+# Phase E — a Limitation's affected object. Only the concrete kinds map to a project-scoped model;
+# abstract kinds (technology/research/statistical/environmental) carry no id to validate.
+_AFFECTED_MODELS = {
+    "source": Source,
+    "dataset": Dataset,
+    "method": Method,
+    "experiment": Experiment,
+}
+
+
+async def _validate_affected(db, project_id, kind, affected_id) -> None:
+    if not affected_id:
+        return
+    model = _AFFECTED_MODELS.get(kind or "")
+    if model is None:
+        # An id was given for an abstract kind that has no object to point at.
+        raise HTTPException(422, f"affected_id is not valid for affected_kind '{kind}'")
+    row = await db.get(model, affected_id)
+    if row is None or getattr(row, "project_id", None) != project_id:
+        raise HTTPException(422, "Unknown or cross-project affected_id")
 
 
 async def _validate_object_links(db, project_id, data: dict) -> None:
@@ -1002,3 +1036,240 @@ async def update_recommendation_links(
     await db.commit()
     await db.refresh(rec)
     return rec
+
+
+# --------------------------------------------------------------------------- #
+# Phase E — Comparisons (atomic, evidence-linked). A value is "grounded" only when it references an
+# existing source/experiment/result; otherwise it is recorded but explicitly ungrounded (never
+# presented as evidence-backed). Values are recorded data, never inferred from prose.
+# --------------------------------------------------------------------------- #
+def _grounded(data: dict) -> bool:
+    return bool(data.get("source_ids") or data.get("experiment_ids") or data.get("result_ids"))
+
+
+@router.get("/{project_id}/comparisons", response_model=list[ComparisonOut])
+async def list_comparisons(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await _get_project(db, project_id, user)
+    return (
+        await db.execute(
+            select(Comparison).where(Comparison.project_id == project_id)
+            .order_by(Comparison.created_at)
+        )
+    ).scalars().all()
+
+
+@router.post("/{project_id}/comparisons", response_model=ComparisonOut, status_code=201)
+async def create_comparison(
+    project_id: str,
+    body: ComparisonCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await _get_project(db, project_id, user)
+    data = body.model_dump()
+    await _validate_object_links(db, project_id, data)
+    row = Comparison(project_id=project_id, grounded=_grounded(data), **data)
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+async def _get_owned_comparison(db, project_id, comparison_id, user) -> Comparison:
+    await _get_project(db, project_id, user)
+    row = await db.get(Comparison, comparison_id)
+    if row is None or row.project_id != project_id:
+        raise HTTPException(404, "Comparison not found")
+    return row
+
+
+@router.get("/{project_id}/comparisons/{comparison_id}", response_model=ComparisonOut)
+async def get_comparison(
+    project_id: str,
+    comparison_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return await _get_owned_comparison(db, project_id, comparison_id, user)
+
+
+@router.patch("/{project_id}/comparisons/{comparison_id}", response_model=ComparisonOut)
+async def update_comparison(
+    project_id: str,
+    comparison_id: str,
+    body: ComparisonUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    row = await _get_owned_comparison(db, project_id, comparison_id, user)
+    changed = body.model_dump(exclude_unset=True)
+    await _validate_object_links(db, project_id, changed)
+    for field, value in changed.items():
+        setattr(row, field, value)
+    # Recompute grounded from the (possibly updated) links.
+    row.grounded = bool(row.source_ids or row.experiment_ids or row.result_ids)
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+@router.delete("/{project_id}/comparisons/{comparison_id}", status_code=204)
+async def delete_comparison(
+    project_id: str,
+    comparison_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    row = await _get_owned_comparison(db, project_id, comparison_id, user)
+    await db.delete(row)
+    await db.commit()
+
+
+# --------------------------------------------------------------------------- #
+# Phase E — Limitations (cross-cutting, traceable). Complements the inline Method/Dataset limitation
+# note-lists; references the affected object + evidence. Never invented to populate the model.
+# --------------------------------------------------------------------------- #
+@router.get("/{project_id}/limitations", response_model=list[LimitationOut])
+async def list_limitations(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await _get_project(db, project_id, user)
+    return (
+        await db.execute(
+            select(Limitation).where(Limitation.project_id == project_id)
+            .order_by(Limitation.created_at)
+        )
+    ).scalars().all()
+
+
+@router.post("/{project_id}/limitations", response_model=LimitationOut, status_code=201)
+async def create_limitation(
+    project_id: str,
+    body: LimitationCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await _get_project(db, project_id, user)
+    data = body.model_dump()
+    await _validate_object_links(db, project_id, data)  # source_ids/claim_ids
+    await _validate_affected(db, project_id, data.get("affected_kind"), data.get("affected_id"))
+    row = Limitation(project_id=project_id, **data)
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+async def _get_owned_limitation(db, project_id, limitation_id, user) -> Limitation:
+    await _get_project(db, project_id, user)
+    row = await db.get(Limitation, limitation_id)
+    if row is None or row.project_id != project_id:
+        raise HTTPException(404, "Limitation not found")
+    return row
+
+
+@router.get("/{project_id}/limitations/{limitation_id}", response_model=LimitationOut)
+async def get_limitation(
+    project_id: str,
+    limitation_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return await _get_owned_limitation(db, project_id, limitation_id, user)
+
+
+@router.patch("/{project_id}/limitations/{limitation_id}", response_model=LimitationOut)
+async def update_limitation(
+    project_id: str,
+    limitation_id: str,
+    body: LimitationUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    row = await _get_owned_limitation(db, project_id, limitation_id, user)
+    changed = body.model_dump(exclude_unset=True)
+    await _validate_object_links(db, project_id, changed)
+    for field, value in changed.items():
+        setattr(row, field, value)
+    if {"affected_kind", "affected_id"} & set(changed):
+        await _validate_affected(db, project_id, row.affected_kind, row.affected_id)
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+@router.delete("/{project_id}/limitations/{limitation_id}", status_code=204)
+async def delete_limitation(
+    project_id: str,
+    limitation_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    row = await _get_owned_limitation(db, project_id, limitation_id, user)
+    await db.delete(row)
+    await db.commit()
+
+
+# --------------------------------------------------------------------------- #
+# Phase E — Knowledge Gap WRITE endpoints (the read `GET /research/{id}/gaps` stays in research.py).
+# EXTENDS the existing auto-generated KnowledgeGap; a gap is an open question, never a verified claim.
+# --------------------------------------------------------------------------- #
+@router.post("/{project_id}/gaps", response_model=KnowledgeGapOut, status_code=201)
+async def create_gap(
+    project_id: str,
+    body: KnowledgeGapCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await _get_project(db, project_id, user)
+    data = body.model_dump()
+    await _validate_object_links(db, project_id, data)  # question/hypothesis/experiment/claim/etc.
+    row = KnowledgeGap(project_id=project_id, **data)
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+async def _get_owned_gap(db, project_id, gap_id, user) -> KnowledgeGap:
+    await _get_project(db, project_id, user)
+    row = await db.get(KnowledgeGap, gap_id)
+    if row is None or row.project_id != project_id:
+        raise HTTPException(404, "Knowledge gap not found")
+    return row
+
+
+@router.patch("/{project_id}/gaps/{gap_id}", response_model=KnowledgeGapOut)
+async def update_gap(
+    project_id: str,
+    gap_id: str,
+    body: KnowledgeGapUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    row = await _get_owned_gap(db, project_id, gap_id, user)
+    changed = body.model_dump(exclude_unset=True)
+    await _validate_object_links(db, project_id, changed)
+    for field, value in changed.items():
+        setattr(row, field, value)
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+@router.delete("/{project_id}/gaps/{gap_id}", status_code=204)
+async def delete_gap(
+    project_id: str,
+    gap_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    row = await _get_owned_gap(db, project_id, gap_id, user)
+    await db.delete(row)
+    await db.commit()

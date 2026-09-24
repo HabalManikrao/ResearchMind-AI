@@ -1438,12 +1438,23 @@ async def _build_report(project_id, provider, source_health: dict | None = None)
         ).scalars().first()
         # Phase D — structured Analysis/Conclusion rows (user/agent authored via the R&D API). The
         # report projects them deterministically; absent on a plain run, so the sections don't appear.
-        from app.models import Analysis, Conclusion
+        from app.models import Analysis, Comparison, Conclusion, KnowledgeGap, Limitation
         analyses = (
             await db.execute(select(Analysis).where(Analysis.project_id == project_id))
         ).scalars().all()
         conclusions = (
             await db.execute(select(Conclusion).where(Conclusion.project_id == project_id))
+        ).scalars().all()
+        # Phase E — Comparisons / Limitations / Research Gaps rows (gaps are auto-generated + editable).
+        comparisons = (
+            await db.execute(select(Comparison).where(Comparison.project_id == project_id))
+        ).scalars().all()
+        limitations = (
+            await db.execute(select(Limitation).where(Limitation.project_id == project_id))
+        ).scalars().all()
+        gaps = (
+            await db.execute(select(KnowledgeGap).where(KnowledgeGap.project_id == project_id)
+                             .order_by(KnowledgeGap.round))
         ).scalars().all()
 
     data = report.ReportInput(
@@ -1513,6 +1524,20 @@ async def _build_report(project_id, provider, source_health: dict | None = None)
             {"title": c.title, "statement": c.statement,
              "classification": c.classification, "confidence": c.confidence}
             for c in conclusions
+        ],
+        comparisons=[
+            {"subject_a": c.subject_a, "subject_b": c.subject_b, "criterion": c.criterion,
+             "value": c.value, "unit": c.unit, "grounded": c.grounded}
+            for c in comparisons
+        ],
+        limitations=[
+            {"ltype": l.ltype, "title": l.title, "description": l.description,
+             "severity": l.severity, "mitigation": l.mitigation, "status": l.status}
+            for l in limitations
+        ],
+        gaps=[
+            {"question": g.question, "importance": g.importance}
+            for g in gaps
         ],
     )
     report_md, meta = await report.generate_report(provider, data)

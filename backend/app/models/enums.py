@@ -128,6 +128,14 @@ CONCLUSION_CLASSIFICATIONS = (
     "proven", "strongly_supported", "supported", "weakly_supported",
     "inconclusive", "unknown", "contradicted", "disproved",
 )
+# Phase E — Comparisons, Limitations, Research Gaps.
+LIMITATION_TYPES = (
+    "source", "dataset", "method", "experiment", "technology",
+    "research", "statistical", "environmental",
+)
+LIMITATION_SEVERITIES = ("high", "medium", "low")
+LIMITATION_STATUSES = ("open", "mitigated", "accepted", "resolved")
+GAP_STATUSES = ("open", "investigating", "addressed", "wont_fix")
 
 
 def _pattern(values: tuple[str, ...]) -> str:
@@ -145,6 +153,10 @@ EXPERIMENT_STATUS_PATTERN = _pattern(EXPERIMENT_STATUSES)
 RESULT_TYPE_PATTERN = _pattern(RESULT_TYPES)
 ANALYSIS_CLASSIFICATION_PATTERN = _pattern(ANALYSIS_CLASSIFICATIONS)
 CONCLUSION_CLASSIFICATION_PATTERN = _pattern(CONCLUSION_CLASSIFICATIONS)
+LIMITATION_TYPE_PATTERN = _pattern(LIMITATION_TYPES)
+LIMITATION_SEVERITY_PATTERN = _pattern(LIMITATION_SEVERITIES)
+LIMITATION_STATUS_PATTERN = _pattern(LIMITATION_STATUSES)
+GAP_STATUS_PATTERN = _pattern(GAP_STATUSES)
 
 
 class EvidenceStance(str, enum.Enum):

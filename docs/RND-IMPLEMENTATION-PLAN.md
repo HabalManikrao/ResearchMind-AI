@@ -110,9 +110,8 @@ benefit/tradeoffs; CRUD in `api/rnd.py` with generalized per-project ref validat
 injects `## Analysis`/`## Conclusions` from rows and tightens the narrative gate
 (`conclusions_unsupported`); KG vocabulary added (emission Phase G). Tests: `test_rnd_phase_d.py`
 (19) + `AnalysisPanel.test.tsx` (4). **Comparisons and Limitations** (originally grouped into this
-phase heading) remain first-class MISSING and are **deferred** (not required for the
-Result→Analysis→Conclusion→Recommendation chain; `Solution`/`scores` cover comparison rendering
-today). Original grouped spec below.
+phase heading) were **delivered later as the milestone labelled "Phase E"** — `Comparison` and
+`Limitation` are now first-class **DONE** (see `docs/RND-PHASE-E-*`). Original grouped spec below.
 
 - **Models:** `Comparison` (subject_a, subject_b, criterion, value, unit, conditions, source_id?,
   experiment_id?, result_id?, confidence) — coexists with the existing `Solution` table (Solution =
@@ -132,7 +131,13 @@ today). Original grouped spec below.
 - **Tests:** CRUD, classification rules, traceability links, conclusion↔evidence, ownership.
   **~20 tests.**
 
-## PHASE E — Timeline, Research Log, Full lifecycle state, Failure recovery (stage-level)
+> **Milestone-numbering note:** the shipped milestone labelled **"Phase E"** delivered
+> **Comparisons + Limitations + Research Gaps** (grouped under this plan's Phase D heading) — see
+> `docs/RND-PHASE-E-*` and the Phase D heading above (Comparisons/Limitations now **DONE**;
+> `KnowledgeGap` extended). The Timeline/Research-Log/lifecycle/stage-recovery work below remains
+> **future** (will be a later milestone).
+
+## PHASE E (plan) — Timeline, Research Log, Full lifecycle state, Failure recovery (stage-level)  ⏳ FUTURE
 - **Models:** `TimelineEvent` (append-only: event_type, ts, ref_id, summary). `ResearchLogEntry`
   (append-only: ts, actor, action, query?, decision?, reason?, ref?, error?). `StageCheckpoint`
   (project_id, stage, status pending/running/completed/failed, artifact_counts JSON, last_error?,

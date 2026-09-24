@@ -75,6 +75,22 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
         "expected_benefit": "TEXT",
         "tradeoffs": "JSON",
     },
+    # R&D layer Phase E: knowledge_gaps become first-class. All nullable/JSON so the auto-generated
+    # gaps from the research loop stay valid. comparisons/limitations are new tables (create_all).
+    "knowledge_gaps": {
+        "importance": "TEXT",
+        "impact": "TEXT",
+        "potential_investigation": "TEXT",
+        "status": "TEXT",
+        "confidence": "FLOAT",
+        "origin": "TEXT",
+        "question_ids": "JSON",
+        "hypothesis_ids": "JSON",
+        "experiment_ids": "JSON",
+        "claim_ids": "JSON",
+        "conclusion_ids": "JSON",
+        "source_ids": "JSON",
+    },
 }
 
 

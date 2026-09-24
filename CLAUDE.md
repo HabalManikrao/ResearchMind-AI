@@ -435,6 +435,25 @@ new KG types go in the extensible `knowledge/registry.py` (migration-free).
   (`components/AnalysisPanel.tsx`; classification badges, grounding required in the create controls)
   + RecommendationTab shows priority/expected-benefit/traceability. Tests: `test_rnd_phase_d.py` (19)
   + frontend `AnalysisPanel.test.tsx` (4). Docs: `docs/RND-PHASE-D-*`.
+- **Phase E (done): comparisons, limitations & (extended) research gaps.** `models/analysis.py` adds
+  `Comparison` (atomic, evidence-linked: subject_a/subject_b/criterion/value/unit/conditions + source/
+  experiment/result links; `grounded` computed from those links — an ungrounded value is flagged, never
+  presented as evidence-backed; coexists with the qualitative `Solution` matrix) and `Limitation`
+  (cross-cutting/traceable: `ltype` source|dataset|method|experiment|technology|research|statistical|
+  environmental, severity, `affected_kind`+`affected_id` validated to the project for concrete kinds,
+  impact/mitigation/status, source/claim links). **`KnowledgeGap` is EXTENDED, not forked**
+  (`_ADDED_COLUMNS`): importance/impact/potential_investigation/status/confidence/origin + link lists
+  (question/hypothesis/experiment/claim/conclusion/source) — the auto-generated gaps from the research
+  loop stay valid; a gap is an **open question, never a verified claim** (status never auto-advances;
+  agent gaps keep `origin="agent"`). CRUD in `app/api/rnd.py` (`.../comparisons`, `.../limitations`,
+  write `.../gaps` beside the existing read `GET`); generalized `_LIST_REF_MODELS` (+`hypothesis_ids`)
+  + `_validate_affected` (cross-project → 422, cross-user → 404). Report `_phase_e_md` injects `##
+  Comparisons`/`## Limitations`/`## Research Gaps` **from rows** (gaps labelled "open questions, not
+  verified findings"; ungrounded comparisons flagged). KG registry gained `comparison`/`limitation`/
+  `research_gap` types + `compares`/`limits`/`affects`/`motivates` predicates (**vocabulary only;
+  emission Phase G**). Diff/memory/monitoring inclusion **deferred**. Frontend: a **Comparisons,
+  Limitations & Gaps tab** (`components/SynthesisPanel.tsx`; editable gaps). Tests:
+  `test_rnd_phase_e.py` (17) + frontend `SynthesisPanel.test.tsx` (4). Docs: `docs/RND-PHASE-E-*`.
 
 ### Report is assembled deterministically from structured data
 The report LLM writes ONLY interpretive prose (Executive Summary / Key Findings / Detailed Analysis /
@@ -529,7 +548,7 @@ mark-read/read-all/delete). **Frontend:** `pages/Scheduled.tsx`, `pages/Notifica
 Not yet built (remaining Phase 7): the **Postgres/Redis** swap (SQLite → Postgres, in-process SSE bus →
 Redis pub/sub, in-process scheduler → Redis/Celery beat — all already behind seams). `net.validate_url`
 exists as the SSRF control for any new outbound-fetch path — route new fetches through it. A pytest suite
-(`backend/tests/`, 425 tests) covers units, API, middleware, auth + access control, schedules,
+(`backend/tests/`, 442 tests) covers units, API, middleware, auth + access control, schedules,
 notifications, the evidence engine (freshness, scoring, contradiction agent, evidence API),
 Document RAG (parsing, chunking, upload security, service, documents API, offline+hybrid pipeline),
 research memory/again/diff (diff engine, lineage, immutability, carry-forward, migration),
@@ -545,7 +564,7 @@ equivalence, cross-user + no-dangerous-tool security), production hardening (`te
 pagination-bounds regression, offline-suite guard, embedding/graph failure injection, DB integrity,
 CPU/Ollama Stage-1-no-LLM budget, full-lifecycle + REST/MCP external E2E) and the **research-quality
 benchmark** (`test_benchmark.py` asserts the benchmark's thresholds so quality can't silently regress),
-and the full faked pipeline — run it before and after changes (see Commands). The **frontend** now also has a Vitest suite (`frontend/`, `npm test`, 73
+and the full faked pipeline — run it before and after changes (see Commands). The **frontend** now also has a Vitest suite (`frontend/`, `npm test`, 77
 tests: evidence + provenance + monitoring + knowledge-graph mapping, `ClaimsTab` + `DocumentsPanel` DOM
 behavior, RunDiff + History lineage + LineageBar, Research Health banner, MonitorCheckRow drill-down,
 EntityDetail, Integrations).
@@ -649,7 +668,7 @@ cp .env.example .env                                       # set TAVILY_API_KEY,
   `TAVILY_API_KEY` or a running SearXNG; papers = arXiv). Writes `evaluation/live_web/results/`
   (git-ignored). Its **offline** guarantees (isolation/provenance/failure/metrics/security) are asserted
   by `tests/test_live_web_eval.py`.
-- **Tests:** `pip install -r requirements-dev.txt` then `.venv/Scripts/python -m pytest` (425 tests,
+- **Tests:** `pip install -r requirements-dev.txt` then `.venv/Scripts/python -m pytest` (442 tests,
   ~135s, all offline). Config in `pytest.ini` (`asyncio_mode=auto`). `tests/conftest.py` binds an
   isolated temp SQLite DB + Qdrant path via env before app import (incl. `AUTH_ENABLED=true` +
   `JWT_SECRET`), and provides fixtures: `client` (ASGI, **auto-registers a user and attaches its bearer

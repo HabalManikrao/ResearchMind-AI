@@ -31,6 +31,9 @@ ENTITY_TYPES = {
     "analysis",        # Phase D
     "conclusion",      # Phase D
     "recommendation",  # Phase D
+    "comparison",      # Phase E
+    "limitation",      # Phase E
+    "research_gap",    # Phase E
     "other",
 }
 DEFAULT_ENTITY_TYPE = "other"
@@ -71,6 +74,11 @@ PREDICATES = {
     "interprets",
     "based_on",
     "informed_by",
+    # Phase E predicates (vocabulary only).
+    "compares",
+    "limits",
+    "affects",
+    "motivates",
 }
 DEFAULT_PREDICATE = "related_to"
 

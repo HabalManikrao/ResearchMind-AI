@@ -13,7 +13,11 @@ from app.models.enums import (
     CONCLUSION_CLASSIFICATION_PATTERN,
     CONSTRAINT_TYPE_PATTERN,
     EXPERIMENT_STATUS_PATTERN,
+    GAP_STATUS_PATTERN,
     HYPOTHESIS_STATUS_PATTERN,
+    LIMITATION_SEVERITY_PATTERN,
+    LIMITATION_STATUS_PATTERN,
+    LIMITATION_TYPE_PATTERN,
     METHOD_STATUS_PATTERN,
     OBJECTIVE_STATUS_PATTERN,
     RESULT_TYPE_PATTERN,
@@ -709,6 +713,114 @@ class ConclusionUpdate(BaseModel):
     notes: str | None = None
 
 
+# --------------------------------------------------------------------------- #
+# R&D layer Phase E — Comparisons & Limitations.
+# --------------------------------------------------------------------------- #
+class ComparisonOut(ORMModel):
+    id: str
+    title: str
+    description: str
+    subject_a: str
+    subject_b: str | None = None
+    criterion: str
+    value: str
+    unit: str | None = None
+    conditions: str
+    grounded: bool
+    source_ids: list
+    experiment_ids: list
+    result_ids: list
+    confidence: float | None = None
+    origin: str
+    notes: str
+
+
+class ComparisonCreate(BaseModel):
+    title: str = Field(default="", max_length=500)
+    description: str = ""
+    subject_a: str = Field(min_length=1, max_length=500)
+    subject_b: str | None = Field(default=None, max_length=500)
+    criterion: str = Field(default="", max_length=300)
+    value: str = ""
+    unit: str | None = Field(default=None, max_length=100)
+    conditions: str = ""
+    source_ids: list[str] = Field(default_factory=list)
+    experiment_ids: list[str] = Field(default_factory=list)
+    result_ids: list[str] = Field(default_factory=list)
+    confidence: float | None = Field(default=None, ge=0, le=100)
+    origin: str = Field(default="user", pattern=RND_ORIGIN_PATTERN)
+    notes: str = ""
+
+
+class ComparisonUpdate(BaseModel):
+    title: str | None = Field(default=None, max_length=500)
+    description: str | None = None
+    subject_a: str | None = Field(default=None, min_length=1, max_length=500)
+    subject_b: str | None = Field(default=None, max_length=500)
+    criterion: str | None = Field(default=None, max_length=300)
+    value: str | None = None
+    unit: str | None = Field(default=None, max_length=100)
+    conditions: str | None = None
+    source_ids: list[str] | None = None
+    experiment_ids: list[str] | None = None
+    result_ids: list[str] | None = None
+    confidence: float | None = Field(default=None, ge=0, le=100)
+    origin: str | None = Field(default=None, pattern=RND_ORIGIN_PATTERN)
+    notes: str | None = None
+
+
+class LimitationOut(ORMModel):
+    id: str
+    ltype: str
+    title: str
+    description: str
+    severity: str
+    affected_kind: str | None = None
+    affected_id: str | None = None
+    impact: str
+    mitigation: str
+    status: str
+    source_ids: list
+    claim_ids: list
+    confidence: float | None = None
+    origin: str
+    notes: str
+
+
+class LimitationCreate(BaseModel):
+    ltype: str = Field(default="research", pattern=LIMITATION_TYPE_PATTERN)
+    title: str = Field(default="", max_length=500)
+    description: str = Field(min_length=3)
+    severity: str = Field(default="medium", pattern=LIMITATION_SEVERITY_PATTERN)
+    affected_kind: str | None = Field(default=None, pattern=LIMITATION_TYPE_PATTERN)
+    affected_id: str | None = None
+    impact: str = ""
+    mitigation: str = ""
+    status: str = Field(default="open", pattern=LIMITATION_STATUS_PATTERN)
+    source_ids: list[str] = Field(default_factory=list)
+    claim_ids: list[str] = Field(default_factory=list)
+    confidence: float | None = Field(default=None, ge=0, le=100)
+    origin: str = Field(default="user", pattern=RND_ORIGIN_PATTERN)
+    notes: str = ""
+
+
+class LimitationUpdate(BaseModel):
+    ltype: str | None = Field(default=None, pattern=LIMITATION_TYPE_PATTERN)
+    title: str | None = Field(default=None, max_length=500)
+    description: str | None = Field(default=None, min_length=3)
+    severity: str | None = Field(default=None, pattern=LIMITATION_SEVERITY_PATTERN)
+    affected_kind: str | None = Field(default=None, pattern=LIMITATION_TYPE_PATTERN)
+    affected_id: str | None = None
+    impact: str | None = None
+    mitigation: str | None = None
+    status: str | None = Field(default=None, pattern=LIMITATION_STATUS_PATTERN)
+    source_ids: list[str] | None = None
+    claim_ids: list[str] | None = None
+    confidence: float | None = Field(default=None, ge=0, le=100)
+    origin: str | None = Field(default=None, pattern=RND_ORIGIN_PATTERN)
+    notes: str | None = None
+
+
 class TaskOut(ORMModel):
     id: str
     agent: str
@@ -794,6 +906,56 @@ class KnowledgeGapOut(ORMModel):
     followup_query: str
     round: int
     resolved: bool
+    # R&D layer Phase E — first-class gap fields (nullable for auto-generated/legacy rows).
+    importance: str | None = None
+    impact: str | None = None
+    potential_investigation: str | None = None
+    status: str | None = None
+    confidence: float | None = None
+    origin: str | None = None
+    question_ids: list | None = None
+    hypothesis_ids: list | None = None
+    experiment_ids: list | None = None
+    claim_ids: list | None = None
+    conclusion_ids: list | None = None
+    source_ids: list | None = None
+
+
+class KnowledgeGapCreate(BaseModel):
+    question: str = Field(min_length=3)
+    reason: str = ""
+    followup_query: str = ""
+    importance: str | None = Field(default=None, pattern="^(high|medium|low)$")
+    impact: str | None = None
+    potential_investigation: str | None = None
+    status: str = Field(default="open", pattern=GAP_STATUS_PATTERN)
+    confidence: float | None = Field(default=None, ge=0, le=100)
+    origin: str = Field(default="user", pattern=RND_ORIGIN_PATTERN)
+    question_ids: list[str] = Field(default_factory=list)
+    hypothesis_ids: list[str] = Field(default_factory=list)
+    experiment_ids: list[str] = Field(default_factory=list)
+    claim_ids: list[str] = Field(default_factory=list)
+    conclusion_ids: list[str] = Field(default_factory=list)
+    source_ids: list[str] = Field(default_factory=list)
+
+
+class KnowledgeGapUpdate(BaseModel):
+    question: str | None = Field(default=None, min_length=3)
+    reason: str | None = None
+    followup_query: str | None = None
+    resolved: bool | None = None
+    importance: str | None = Field(default=None, pattern="^(high|medium|low)$")
+    impact: str | None = None
+    potential_investigation: str | None = None
+    status: str | None = Field(default=None, pattern=GAP_STATUS_PATTERN)
+    confidence: float | None = Field(default=None, ge=0, le=100)
+    origin: str | None = Field(default=None, pattern=RND_ORIGIN_PATTERN)
+    question_ids: list[str] | None = None
+    hypothesis_ids: list[str] | None = None
+    experiment_ids: list[str] | None = None
+    claim_ids: list[str] | None = None
+    conclusion_ids: list[str] | None = None
+    source_ids: list[str] | None = None
 
 
 class SolutionOut(ORMModel):

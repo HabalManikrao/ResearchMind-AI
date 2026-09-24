@@ -409,5 +409,22 @@ class KnowledgeGap(Base, TimestampMixin):
     followup_query: Mapped[str] = mapped_column(Text, default="")
     round: Mapped[int] = mapped_column(Integer, default=0)
     resolved: Mapped[bool] = mapped_column(default=False)
+    # R&D layer Phase E — make the gap first-class (extend, don't fork). All nullable/defaulted so the
+    # auto-generated gaps from the research loop stay valid. A gap is an identified ABSENCE/open
+    # question — never a verified claim; `status` never auto-advances beyond "open" and agent-generated
+    # gaps keep origin="agent".
+    importance: Mapped[str | None] = mapped_column(String(20), nullable=True)  # high|medium|low (free)
+    impact: Mapped[str | None] = mapped_column(Text, nullable=True)
+    potential_investigation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str | None] = mapped_column(String(20), nullable=True)  # open|investigating|…
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)  # 0-100; None if unset
+    origin: Mapped[str | None] = mapped_column(String(20), nullable=True)  # user|agent|derived
+    # Links to EXISTING research objects (reuse the id-list pattern).
+    question_ids: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    hypothesis_ids: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    experiment_ids: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    claim_ids: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    conclusion_ids: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    source_ids: Mapped[list | None] = mapped_column(JSON, nullable=True)
 
     project: Mapped[ResearchProject] = relationship(back_populates="knowledge_gaps")
