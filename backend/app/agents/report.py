@@ -100,6 +100,8 @@ class ReportInput:
     comparisons: list[dict] = field(default_factory=list)
     limitations: list[dict] = field(default_factory=list)
     gaps: list[dict] = field(default_factory=list)  # KnowledgeGap rows (open questions, not facts)
+    # Phase F — reproducibility record (safe metadata + explicit verdict). Projected, not asserted.
+    reproducibility: dict | None = None
 
 
 async def generate_report(provider: AIProvider, data: ReportInput) -> tuple[str, dict]:
@@ -216,7 +218,52 @@ def _assemble(data: ReportInput, narrative: str) -> str:
         + conflicts_md
         + sources_md
         + conf_md
+        + _reproducibility_md(data)
     )
+
+
+_VERDICT_LABELS = {
+    "not_assessed": "Not assessed",
+    "reproducible": "Reproducible",
+    "partially_reproducible": "Partially reproducible",
+    "not_reproducible": "Not reproducible",
+    "inconclusive": "Inconclusive",
+}
+
+
+def _reproducibility_md(data: ReportInput) -> str:
+    """Deterministic Reproducibility section from the persisted record (Phase F), rendered ONLY when a
+    record exists. The verdict is projected from the row (never a positive verdict from prose or from
+    'metadata is complete'); unavailable metadata is shown as such, never fabricated."""
+    r = data.reproducibility
+    if not r:
+        return ""
+    verdict = _VERDICT_LABELS.get(r.get("verdict", "not_assessed"), "Not assessed")
+    md = "\n## Reproducibility\n\n"
+    md += f"**Reproducibility verdict: {verdict}.**"
+    if r.get("verdict", "not_assessed") == "not_assessed":
+        md += " _Reproducibility has not been assessed — captured metadata below does not imply the " \
+              "research was reproduced._"
+    md += "\n\n"
+    if r.get("rationale"):
+        md += f"{r['rationale']}\n\n"
+    # Captured identifiers (only those present; NULLs are omitted, not invented).
+    rows = [
+        ("Model", r.get("model_name")),
+        ("Model version", r.get("model_version")),
+        ("Embedding model", r.get("embedding_model")),
+        ("Search provider", r.get("search_provider")),
+        ("Provider config", r.get("provider_config_id")),
+        ("Dataset version", r.get("dataset_version")),
+        ("Git commit", r.get("git_commit")),
+        ("Seed", r.get("seed")),
+        ("OS", r.get("os")),
+        ("As of", r.get("as_of")),
+    ]
+    present = [(k, v) for k, v in rows if v not in (None, "")]
+    if present:
+        md += "Captured metadata:\n" + "".join(f"- {k}: {v}\n" for k, v in present)
+    return md
 
 
 def _phase_e_md(data: ReportInput) -> str:

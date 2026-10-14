@@ -45,6 +45,7 @@ import LabPanel from "../components/LabPanel";
 import ExperimentsPanel from "../components/ExperimentsPanel";
 import AnalysisPanel from "../components/AnalysisPanel";
 import SynthesisPanel from "../components/SynthesisPanel";
+import ReproducibilityPanel from "../components/ReproducibilityPanel";
 import type {
   KnowledgeGraph,
   SourceHealth,
@@ -75,6 +76,7 @@ type Tab =
   | "analysis"
   | "synthesis"
   | "recommendation"
+  | "reproducibility"
   | "graph"
   | "report"
   | "monitoring";
@@ -210,6 +212,7 @@ export default function LiveResearch() {
     { key: "analysis", label: "Analysis & Conclusions" },
     { key: "synthesis", label: "Comparisons, Limitations & Gaps" },
     { key: "recommendation", label: "Recommendation" },
+    { key: "reproducibility", label: "Reproducibility" },
     { key: "graph", label: "Graph" },
     { key: "report", label: "Report" },
     { key: "monitoring", label: "Monitoring" },
@@ -309,6 +312,7 @@ export default function LiveResearch() {
           isActive={isActive}
         />
       )}
+      {tab === "reproducibility" && <ReproducibilityPanel projectId={id!} />}
       {tab === "graph" && <GraphTab graph={graph} />}
       {tab === "report" && <ReportTab report={report} isActive={isActive} />}
       {tab === "monitoring" && (

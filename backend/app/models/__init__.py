@@ -31,6 +31,7 @@ from app.models.research import (
     Source,
 )
 from app.models.notification import Notification
+from app.models.reproducibility import ReproducibilityRecord
 from app.models.schedule import ScheduledResearch
 from app.models.user import User
 
@@ -72,6 +73,7 @@ __all__ = [
     "MonitorCheck",
     "Notification",
     "Recommendation",
+    "ReproducibilityRecord",
     "ResearchMonitor",
     "ResearchProject",
     "ResearchQuestion",

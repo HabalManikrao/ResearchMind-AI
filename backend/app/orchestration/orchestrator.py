@@ -315,6 +315,10 @@ async def run_research(project_id: str, control: RunControl) -> None:
             agent="connectivity", **source_health,
         )
 
+        # --- Reproducibility snapshot (Phase F). Safe, non-secret, best-effort; captured BEFORE the
+        # report so the report can project it. verdict stays not_assessed (never auto-positive). ----
+        await _capture_reproducibility(project_id, as_of)
+
         # --- Report -----------------------------------------------------------
         await control.checkpoint()
         await _emit(project_id, "stage", "Generating final research report")
@@ -843,6 +847,65 @@ async def _surface_related_research(project_id: str, objective: str) -> None:
             f"Found {len(related)} related prior research project(s): {titles}",
             agent="knowledge", related=[r.project_id for r in related],
         )
+
+
+def _safe_git() -> tuple[str | None, str | None, bool | None]:
+    """Best-effort git (commit, branch, dirty). Returns (None, None, None) on ANY failure — git is
+    never a runtime dependency and a commit is never fabricated (Phase F truthfulness rule)."""
+    import subprocess
+
+    def _run(args: list[str]) -> str | None:
+        try:
+            out = subprocess.run(args, capture_output=True, text=True, timeout=3)
+            return out.stdout.strip() if out.returncode == 0 else None
+        except Exception:  # noqa: BLE001 - git absent / not a repo / timeout → unavailable
+            return None
+
+    commit = _run(["git", "rev-parse", "HEAD"])
+    branch = _run(["git", "rev-parse", "--abbrev-ref", "HEAD"])
+    status = _run(["git", "status", "--porcelain"])
+    dirty = None if status is None else bool(status)
+    return commit, branch, dirty
+
+
+async def _capture_reproducibility(project_id: str, as_of: str) -> None:
+    """Auto-create the run's ReproducibilityRecord with SAFE, non-secret identifiers (Phase F).
+    Best-effort (never fails the run); reuses config/existing data (no new provider/network calls);
+    verdict stays 'not_assessed'. Unavailable values remain NULL — never inferred/fabricated."""
+    try:
+        from app.models import ReproducibilityRecord
+
+        commit, branch, dirty = _safe_git()
+        # A provider config *id*, never a key/url-with-secret.
+        provider_config_id = (
+            "tavily" if settings.search_provider == "tavily" else f"searxng:{settings.search_provider}"
+        )
+        async with _db_lock, SessionLocal() as db:
+            existing = (
+                await db.execute(
+                    select(ReproducibilityRecord).where(
+                        ReproducibilityRecord.project_id == project_id)
+                )
+            ).scalars().first()
+            if existing is not None:
+                return  # respect a manually-created record; don't overwrite
+            db.add(ReproducibilityRecord(
+                project_id=project_id,
+                model_name=settings.ollama_model or None,
+                model_provider="ollama",
+                embedding_model=settings.embedding_model or None,
+                search_provider=settings.search_provider or None,
+                provider_config_id=provider_config_id,
+                as_of=as_of,
+                git_commit=commit,
+                git_branch=branch,
+                git_dirty=dirty,
+                verdict="not_assessed",  # NEVER auto-positive
+                origin="agent",  # auto-captured
+            ))
+            await db.commit()
+    except Exception:  # noqa: BLE001 - reproducibility capture must never break a completed run
+        pass
 
 
 async def _index_knowledge(project_id: str) -> None:
@@ -1456,6 +1519,12 @@ async def _build_report(project_id, provider, source_health: dict | None = None)
             await db.execute(select(KnowledgeGap).where(KnowledgeGap.project_id == project_id)
                              .order_by(KnowledgeGap.round))
         ).scalars().all()
+        # Phase F — reproducibility record (safe metadata + explicit verdict), captured just before.
+        from app.models import ReproducibilityRecord
+        repro = (
+            await db.execute(select(ReproducibilityRecord)
+                             .where(ReproducibilityRecord.project_id == project_id))
+        ).scalars().first()
 
     data = report.ReportInput(
         objective=proj.objective or proj.query,
@@ -1539,6 +1608,14 @@ async def _build_report(project_id, provider, source_health: dict | None = None)
             {"question": g.question, "importance": g.importance}
             for g in gaps
         ],
+        reproducibility=(
+            {"verdict": repro.verdict, "rationale": repro.rationale,
+             "model_name": repro.model_name, "model_version": repro.model_version,
+             "embedding_model": repro.embedding_model, "search_provider": repro.search_provider,
+             "provider_config_id": repro.provider_config_id, "dataset_version": repro.dataset_version,
+             "git_commit": repro.git_commit, "seed": repro.seed, "os": repro.os, "as_of": repro.as_of}
+            if repro else None
+        ),
     )
     report_md, meta = await report.generate_report(provider, data)
     if source_health:

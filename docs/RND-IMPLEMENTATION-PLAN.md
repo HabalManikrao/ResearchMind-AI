@@ -157,7 +157,18 @@ phase heading) were **delivered later as the milestone labelled "Phase E"** — 
 - **Tests:** checkpoint writes, timeline/log append-only, stage retry preserves prior stages, error
   history preserved after success, ownership. **~20 tests.**
 
-## PHASE F — Reproducibility & Versioning
+## PHASE F — Reproducibility & Versioning  ✅ DONE (reproducibility) / versioning reused
+Implemented: `models/reproducibility.py:ReproducibilityRecord` (1:1 per project/run, get-or-create) —
+safe non-secret snapshot (model/embedding/tool/provider-config-id/dataset-version/software/hardware/os/
+env/seed/git-commit/data-refs/as_of) + **explicit `verdict`** (default `not_assessed`, never
+auto-positive; secrets stripped via `_strip_secrets`). Safe auto-capture at run completion
+(`orchestrator._capture_reproducibility`/`_safe_git`, best-effort, no new provider calls). API
+`GET/PUT /research/{id}/reproducibility`; report `## Reproducibility` section; frontend
+`ReproducibilityPanel`. **Versioning:** reused run lineage (#4) + Dataset versioning (C) — no universal
+version table (audit rejected as over-engineering); universal per-object versioning + Research Log/
+Timeline **remain the future lifecycle milestone**. KG: no new entities. `/v1`+MCP deferred. Tests:
+`test_rnd_phase_f.py` (17) + `ReproducibilityPanel.test.tsx` (3). Docs: `RND-PHASE-F-*`. Original spec below.
+
 - **Models:** `ReproducibilityRecord` (per run/experiment: model, model_version, prompt/system,
   tools, search_queries, search_date, dataset_version, software_version, git_commit, hardware, os,
   env, config, seed, raw/processed results) with explicit state reproducible/partial/not/unknown —

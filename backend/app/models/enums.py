@@ -136,6 +136,11 @@ LIMITATION_TYPES = (
 LIMITATION_SEVERITIES = ("high", "medium", "low")
 LIMITATION_STATUSES = ("open", "mitigated", "accepted", "resolved")
 GAP_STATUSES = ("open", "investigating", "addressed", "wont_fix")
+# Phase F — reproducibility verdict. Default is ALWAYS "not_assessed"; a positive verdict is never
+# inferred from populated metadata — it requires an explicit assessment basis.
+REPRODUCIBILITY_VERDICTS = (
+    "not_assessed", "reproducible", "partially_reproducible", "not_reproducible", "inconclusive",
+)
 
 
 def _pattern(values: tuple[str, ...]) -> str:
@@ -157,6 +162,7 @@ LIMITATION_TYPE_PATTERN = _pattern(LIMITATION_TYPES)
 LIMITATION_SEVERITY_PATTERN = _pattern(LIMITATION_SEVERITIES)
 LIMITATION_STATUS_PATTERN = _pattern(LIMITATION_STATUSES)
 GAP_STATUS_PATTERN = _pattern(GAP_STATUSES)
+REPRODUCIBILITY_VERDICT_PATTERN = _pattern(REPRODUCIBILITY_VERDICTS)
 
 
 class EvidenceStance(str, enum.Enum):

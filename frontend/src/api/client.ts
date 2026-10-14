@@ -14,6 +14,7 @@ import type {
   Hypothesis,
   Limitation,
   Method,
+  Reproducibility,
   Result,
   DocumentItem,
   DocumentPassage,
@@ -262,6 +263,14 @@ export const api = {
     req<KnowledgeGap>(`/research/${id}/gaps/${gid}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteGap: (id: string, gid: string) =>
     req<void>(`/research/${id}/gaps/${gid}`, { method: "DELETE" }),
+
+  // --- R&D layer Phase F: Reproducibility --- //
+  reproducibility: (id: string) => req<Reproducibility>(`/research/${id}/reproducibility`),
+  updateReproducibility: (id: string, patch: Partial<Reproducibility>) =>
+    req<Reproducibility>(`/research/${id}/reproducibility`, {
+      method: "PUT",
+      body: JSON.stringify(patch),
+    }),
   tasks: (id: string) => req<Task[]>(`/research/${id}/tasks`),
   sources: (id: string) => req<Source[]>(`/research/${id}/sources`),
   claims: (id: string) => req<Claim[]>(`/research/${id}/claims`),

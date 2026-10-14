@@ -371,6 +371,49 @@ export interface Limitation {
   notes: string;
 }
 
+// --- R&D layer Phase F: Reproducibility --- //
+export type ReproducibilityVerdict =
+  | "not_assessed"
+  | "reproducible"
+  | "partially_reproducible"
+  | "not_reproducible"
+  | "inconclusive";
+
+export interface Reproducibility {
+  id: string;
+  project_id: string;
+  experiment_id?: string | null;
+  dataset_id?: string | null;
+  dataset_version?: string | null;
+  model_name?: string | null;
+  model_version?: string | null;
+  model_provider?: string | null;
+  embedding_model?: string | null;
+  embedding_model_version?: string | null;
+  search_provider?: string | null;
+  provider_config_id?: string | null;
+  search_date?: string | null;
+  software?: string | null;
+  software_versions?: string[] | null;
+  hardware?: string | null;
+  os?: string | null;
+  environment?: string | null;
+  configuration?: Record<string, unknown> | null;
+  seed?: string | null;
+  git_commit?: string | null;
+  git_branch?: string | null;
+  git_dirty?: boolean | null;
+  raw_data_reference?: string | null;
+  processed_data_reference?: string | null;
+  as_of?: string | null;
+  verdict: ReproducibilityVerdict;
+  rationale: string;
+  assessed_by?: string | null;
+  assessed_at?: string | null;
+  origin: string;
+  notes: string;
+}
+
 export interface KnowledgeGap {
   id: string;
   question: string;

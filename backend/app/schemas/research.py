@@ -20,6 +20,7 @@ from app.models.enums import (
     LIMITATION_TYPE_PATTERN,
     METHOD_STATUS_PATTERN,
     OBJECTIVE_STATUS_PATTERN,
+    REPRODUCIBILITY_VERDICT_PATTERN,
     RESULT_TYPE_PATTERN,
     ProjectStatus,
     QUESTION_CATEGORY_PATTERN,
@@ -817,6 +818,82 @@ class LimitationUpdate(BaseModel):
     source_ids: list[str] | None = None
     claim_ids: list[str] | None = None
     confidence: float | None = Field(default=None, ge=0, le=100)
+    origin: str | None = Field(default=None, pattern=RND_ORIGIN_PATTERN)
+    notes: str | None = None
+
+
+# --------------------------------------------------------------------------- #
+# R&D layer Phase F — Reproducibility record. Identifiers only (never secrets); the verdict is
+# explicit (default not_assessed) and never auto-computed.
+# --------------------------------------------------------------------------- #
+class ReproducibilityOut(ORMModel):
+    id: str
+    project_id: str
+    experiment_id: str | None = None
+    dataset_id: str | None = None
+    dataset_version: str | None = None
+    model_name: str | None = None
+    model_version: str | None = None
+    model_provider: str | None = None
+    embedding_model: str | None = None
+    embedding_model_version: str | None = None
+    search_provider: str | None = None
+    provider_config_id: str | None = None
+    search_date: str | None = None
+    software: str | None = None
+    software_versions: list | None = None
+    hardware: str | None = None
+    os: str | None = None
+    environment: str | None = None
+    configuration: dict | None = None
+    seed: str | None = None
+    git_commit: str | None = None
+    git_branch: str | None = None
+    git_dirty: bool | None = None
+    raw_data_reference: str | None = None
+    processed_data_reference: str | None = None
+    as_of: str | None = None
+    verdict: str
+    rationale: str
+    assessed_by: str | None = None
+    assessed_at: str | None = None
+    origin: str
+    notes: str
+
+
+class ReproducibilityUpdate(BaseModel):
+    """Manually record/adjust reproducibility metadata + verdict. Any omitted field is unchanged.
+    Secret-looking keys in `configuration` are stripped server-side before persistence."""
+
+    experiment_id: str | None = None
+    dataset_id: str | None = None
+    dataset_version: str | None = None
+    model_name: str | None = Field(default=None, max_length=200)
+    model_version: str | None = Field(default=None, max_length=100)
+    model_provider: str | None = Field(default=None, max_length=100)
+    embedding_model: str | None = Field(default=None, max_length=200)
+    embedding_model_version: str | None = Field(default=None, max_length=100)
+    search_provider: str | None = Field(default=None, max_length=100)
+    provider_config_id: str | None = Field(default=None, max_length=300)
+    search_date: str | None = None
+    software: str | None = None
+    software_versions: list[str] | None = None
+    hardware: str | None = None
+    os: str | None = Field(default=None, max_length=200)
+    environment: str | None = None
+    configuration: dict | None = None
+    seed: str | None = Field(default=None, max_length=100)
+    git_commit: str | None = Field(default=None, max_length=64)
+    git_branch: str | None = Field(default=None, max_length=200)
+    git_dirty: bool | None = None
+    raw_data_reference: str | None = None
+    processed_data_reference: str | None = None
+    as_of: str | None = None
+    # Verdict is explicit: default stays not_assessed; a positive verdict is a deliberate assessment.
+    verdict: str | None = Field(default=None, pattern=REPRODUCIBILITY_VERDICT_PATTERN)
+    rationale: str | None = None
+    assessed_by: str | None = Field(default=None, max_length=200)
+    assessed_at: str | None = None
     origin: str | None = Field(default=None, pattern=RND_ORIGIN_PATTERN)
     notes: str | None = None
 

@@ -27,6 +27,7 @@ from app.models import (
     Method,
     Objective,
     Recommendation,
+    ReproducibilityRecord,
     ResearchBrief,
     ResearchQuestion,
     Result,
@@ -69,6 +70,8 @@ from app.schemas.research import (
     ObjectiveUpdate,
     RecommendationLinksUpdate,
     RecommendationOut,
+    ReproducibilityOut,
+    ReproducibilityUpdate,
     ResearchBriefOut,
     ResearchBriefUpdate,
     ResultCreate,
@@ -1273,3 +1276,73 @@ async def delete_gap(
     row = await _get_owned_gap(db, project_id, gap_id, user)
     await db.delete(row)
     await db.commit()
+
+
+# --------------------------------------------------------------------------- #
+# Phase F — Reproducibility record (1:1 per project/run, get-or-create). Identifiers only; the
+# verdict is explicit (default not_assessed, never auto-computed). Secret-looking config keys are
+# stripped before persistence, so credentials can never enter reproducibility metadata.
+# --------------------------------------------------------------------------- #
+_SECRET_KEY_MARKERS = (
+    "key", "token", "secret", "password", "passwd", "cookie", "authorization",
+    "auth", "credential", "bearer", "api_key", "apikey", "access",
+)
+
+
+def _strip_secrets(config: dict | None) -> dict | None:
+    """Drop any config entry whose key looks like a credential. Reproducibility metadata must never
+    persist secrets (spec §21 / Phase F hard rule); safe identifiers/config-ids are kept."""
+    if not isinstance(config, dict):
+        return config
+    cleaned: dict = {}
+    for k, v in config.items():
+        lk = str(k).lower()
+        if any(m in lk for m in _SECRET_KEY_MARKERS):
+            continue  # never store credential-looking values
+        cleaned[k] = v
+    return cleaned
+
+
+async def _get_or_create_reproducibility(db, project_id: str) -> ReproducibilityRecord:
+    row = (
+        await db.execute(
+            select(ReproducibilityRecord).where(ReproducibilityRecord.project_id == project_id)
+        )
+    ).scalars().first()
+    if row is None:
+        row = ReproducibilityRecord(project_id=project_id)  # verdict defaults not_assessed
+        db.add(row)
+        await db.commit()
+        await db.refresh(row)
+    return row
+
+
+@router.get("/{project_id}/reproducibility", response_model=ReproducibilityOut)
+async def get_reproducibility(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await _get_project(db, project_id, user)
+    return await _get_or_create_reproducibility(db, project_id)
+
+
+@router.put("/{project_id}/reproducibility", response_model=ReproducibilityOut)
+async def update_reproducibility(
+    project_id: str,
+    body: ReproducibilityUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await _get_project(db, project_id, user)
+    row = await _get_or_create_reproducibility(db, project_id)
+    changed = body.model_dump(exclude_unset=True)
+    # Validate optional experiment/dataset refs belong to the project.
+    await _validate_object_links(db, project_id, changed)  # experiment_id/dataset_id (single refs)
+    if "configuration" in changed:
+        changed["configuration"] = _strip_secrets(changed["configuration"])
+    for field, value in changed.items():
+        setattr(row, field, value)
+    await db.commit()
+    await db.refresh(row)
+    return row

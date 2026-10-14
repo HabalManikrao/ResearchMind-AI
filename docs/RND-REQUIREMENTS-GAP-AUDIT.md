@@ -42,7 +42,12 @@ ResearchLog/Checkpoint/Reproducibility/Analysis/Limitation/Comparison/ResearchBr
 - **Phase C (commit `8fafa26`):** Experiments → **COMPLETE**; Datasets → **COMPLETE**; structured
   Results → **COMPLETE**. See `models/experiment.py` (Dataset/Experiment/Result), `api/rnd.py`,
   `RND-PHASE-C-*`. KG vocabulary added; builder emission deferred to Phase G.
-- **Phase E (this change):** Comparisons → **COMPLETE** (first-class atomic); Limitations →
+- **Phase F (this change):** Reproducibility record + explicit verdict → **COMPLETE**
+  (`models/reproducibility.py`; verdict default `not_assessed`, never auto-positive; secrets stripped;
+  safe auto-capture at completion). Dataset & run versioning were already COMPLETE (C/#4). Universal
+  per-object versioning + Research Log/Timeline remain **DEFERRED** (lifecycle milestone). See
+  `RND-PHASE-F-*`.
+- **Phase E (commit `5a70ed1`):** Comparisons → **COMPLETE** (first-class atomic); Limitations →
   **COMPLETE** (first-class cross-cutting); Research Gaps → **COMPLETE** (extended `KnowledgeGap` +
   write API). See `models/analysis.py` (Comparison/Limitation), extended `KnowledgeGap`, `api/rnd.py`,
   `agents/report.py`, `RND-PHASE-E-*`. KG vocabulary added; emission Phase G. Diff/memory/monitoring
@@ -98,8 +103,8 @@ ResearchLog/Checkpoint/Reproducibility/Analysis/Limitation/Comparison/ResearchBr
 | §27 | Retry Failed Stage | **MISSING** | Requires stage checkpoints + per-stage re-entry into the orchestrator. |
 | §28 | Continue From Last Successful Stage | **MISSING** | Requires durable stage checkpoints; orchestrator currently always runs the full pipeline from planning. |
 | §29 | Structured Error History | **PARTIAL** | `proj.error` (last), `report_meta.retry_history` (retry attempts), `ResearchTask.error` (per task). No dedicated multi-error history with stage/component/type/recovery. |
-| §30 | Reproducibility record | **MISSING** | No captured model/prompt/tool/query/dataset/seed/git-commit/env metadata per run/experiment/result. |
-| §31 | Versioning (per-object) | **PARTIAL** | Run-level lineage + Research Again + Diff (#4) exist. No per-object immutable version history for briefs/claims/experiments/etc. |
+| §30 | Reproducibility record | **COMPLETE** (Phase F) | `ReproducibilityRecord` (`models/reproducibility.py`): safe model/embedding/tool/provider-config-id/dataset-version/software/hardware/os/env/seed/git-commit/data-ref capture + explicit `verdict` (default not_assessed, never auto-positive). Auto-captured at completion; secrets stripped. |
+| §31 | Versioning (per-object) | **PARTIAL (by design)** | Run-level lineage + Research Again + Diff (#4) + Dataset versioning (C) are COMPLETE and are the versioning mechanism. Universal per-object immutable history remains **DEFERRED** (Phase F audit rejected a generic version table as over-engineering). |
 | §32 | Research updates → re-evaluate affected | **PARTIAL** | Research Diff + Monitoring re-evaluate at the claim/recommendation level. Extend to new objects — **reuse, do not add a second diff engine.** |
 | §34 | Bidirectional traceability | **PARTIAL** | claim→evidence→source and (implicitly) recommendation exist. Experiment/hypothesis/result/conclusion chains MISSING. |
 | §35 | Confidence across objects | **PARTIAL** | Source reliability + claim `confidence_meta`. Missing for hypotheses/experiments/results/conclusions. |
